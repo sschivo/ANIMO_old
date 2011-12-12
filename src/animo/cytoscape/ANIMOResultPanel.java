@@ -139,7 +139,7 @@ public class ANIMOResultPanel extends JPanel implements ChangeListener {
 				}
 			}
 			if ((!rLower.contains(VariablesModel.ACTIVITY_SUFFIX) && !rLower.contains(VariablesModel.QUANTITY_SUFFIX)
-					&& !rLower.contains(VariablesModel.MAX_QUANTITY_SUFFIX) && !rLower.contains(VariablesModel.PERCENTAGE_SUFFIX)) //These have already been dealt with
+					&& !rLower.contains(VariablesModel.MAX_QUANTITY_SUFFIX) && !rLower.contains(VariablesModel.PERCENTAGE_SUFFIX) && !rLower.contains(VariablesModel.SEMAPHORE_SUFFIX)) //These have already been dealt with
 				&& ((!rLower.contains(ResultAverager.STD_DEV) && model.getReactant(r).get(Model.Properties.PLOTTED).as(Boolean.class))
 					|| rLower.contains(ResultAverager.STD_DEV))) {
 				filteredSeriesNames.add(originalR);

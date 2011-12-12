@@ -55,7 +55,8 @@ public class VariablesModel implements ModelTransformer {
 	public static final String QUANTITY_SUFFIX = "_qty", //The suffix to be added to a reactant's name to make it represent a quantity
 							   MAX_QUANTITY_SUFFIX = "_max_qnty", //The suffix to be added to represent the maximum quantity (notice that QUANTITY_SUFFIX is NOT contained into MAX_QUANTITY_SUFFIX
 							   ACTIVITY_SUFFIX = "_act", //The suffix to represent activity level
-							   PERCENTAGE_SUFFIX = "_perc"; //The suffix to represent the percentage of active reactant
+							   PERCENTAGE_SUFFIX = "_perc", //The suffix to represent the percentage of active reactant
+							   SEMAPHORE_SUFFIX = "_sem"; //The suffix to represent the semaphore we use to deal with the possible concurrent modification of a batch of output variables: this way, we either are ensured to modify all of them or none of them
 	public static final int INFINITE_TIME = -1;
 	protected static String newLine = System.getProperty("line.separator");
 	Map<String, Vector<Reactant>> groups = null;

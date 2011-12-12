@@ -392,6 +392,10 @@ public class ANIMOPropertyChangeListener implements PropertyChangeListener {
 			currentEdgeNumber = network.getEdgeCount();
 			currentNodeNumber = network.getNodeCount();
 			edgesArray = network.nodesList().toArray();
+			CyAttributes networkAttributes = Cytoscape.getNetworkAttributes();
+			if (!networkAttributes.hasAttribute(network.getIdentifier(), Model.Properties.SECONDS_PER_POINT)) {
+				networkAttributes.setAttribute(network.getIdentifier(), Model.Properties.SECONDS_PER_POINT, 12.0);
+			}
 		}
 		if (evt.getPropertyName().equalsIgnoreCase(Cytoscape.NETWORK_LOADED)) {
 			//As there can be edges with intermediate curving points, make those points curved instead of angled (they look nicer)

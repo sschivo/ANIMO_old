@@ -254,7 +254,7 @@ public class VariablesModelSMC extends VariablesModel {
 				}
 				for (int i=0;i<nOutput;i++) {
 					String id = fromCytoscapeIdtoModelId.get(influencedReactants.get(i).getReactantIdentifier());
-					out.append(", " + id + QUANTITY_SUFFIX + ", " + id + ACTIVITY_SUFFIX + ", " + id + MAX_QUANTITY_SUFFIX + ", " + id + PERCENTAGE_SUFFIX);
+					out.append(", " + id + QUANTITY_SUFFIX + ", " + id + ACTIVITY_SUFFIX + ", " + id + MAX_QUANTITY_SUFFIX + ", " + id + PERCENTAGE_SUFFIX + ", " + id + SEMAPHORE_SUFFIX);
 				}
 				out.append(", " + r1Id + "_" + r2Id + "_r_tLower, " + r1Id + "_" + r2Id + "_r_tUpper");
 				for (int i=0;i<nOutput;i++) {
@@ -476,7 +476,7 @@ public class VariablesModelSMC extends VariablesModel {
 							reactionTemplate.append("int &amp;input_reactant" + (i+1) + QUANTITY_SUFFIX + ", int &amp;input_reactant" + (i+1) + ACTIVITY_SUFFIX);
 						}
 						for (int i=0;i<nOutput;i++) {
-							reactionTemplate.append(", int &amp;output_reactant" + (i+1) + QUANTITY_SUFFIX + ", int &amp;output_reactant" + (i+1) + ACTIVITY_SUFFIX + ", int &amp;output_reactant" + (i+1) + MAX_QUANTITY_SUFFIX + ", int &amp;output_reactant" + (i + 1) + PERCENTAGE_SUFFIX);
+							reactionTemplate.append(", int &amp;output_reactant" + (i+1) + QUANTITY_SUFFIX + ", int &amp;output_reactant" + (i+1) + ACTIVITY_SUFFIX + ", int &amp;output_reactant" + (i+1) + MAX_QUANTITY_SUFFIX + ", int &amp;output_reactant" + (i + 1) + PERCENTAGE_SUFFIX + ", int &amp;output_reactant" + (i + 1) + SEMAPHORE_SUFFIX);
 						}
 						reactionTemplate.append(", const int timeL" + matrixDimensionsList);
 						reactionTemplate.append(", const int timeU" + matrixDimensionsList);
@@ -582,16 +582,30 @@ public class VariablesModelSMC extends VariablesModel {
 								x += incrementX;
 								reactionTemplate.append("<transition><source ref=\"" + prev + "\"/><target ref=\"" + next + "\"/>");
 								if (i == 0) { //The first of the chain needs of course to have the guard
-									reactionTemplate.append("<label kind=\"guard\">c&gt;=timeL" + matrixIndicesLocalList + "</label>");
+									reactionTemplate.append("<label kind=\"guard\">c&gt;=timeL" + matrixIndicesLocalList);
+									//..and to check that all semaphores are ok
+									for (int k=0;k<nOutput;k++) {
+										reactionTemplate.append("\n&amp;&amp; output_reactant" + (k + 1) + SEMAPHORE_SUFFIX + " == 0");
+									}
+									reactionTemplate.append("</label>");
 								}
-								reactionTemplate.append("<label kind=\"synchronisation\">output" + (i + 1) + "_reacting!</label><label kind=\"assignment\">updateReactant" + (i + 1) + "()</label></transition>");
+								reactionTemplate.append("<label kind=\"synchronisation\">output" + (i + 1) + "_reacting!</label><label kind=\"assignment\">updateReactant" + (i + 1) + "()");
+								for (int k=0;k<nOutput;k++) { //When the reaction is ok to go, we take all semaphores
+									reactionTemplate.append(",\noutput_reactant" + (k + 1) + SEMAPHORE_SUFFIX + " := 1");
+								}
+								reactionTemplate.append("</label></transition>");
 								prev = "upd" + (i + 1);
 							}
 							next = "id1";
 							int i = nOutput - 1;
-							reactionTemplate.append("<transition><source ref=\"" + prev + "\"/><target ref=\"" + next + "\"/><label kind=\"synchronisation\">output" + (i + 1) + "_reacting!</label><label kind=\"assignment\">c := 0,\nupdateReactant" + (i + 1) + "()</label></transition>");
+							reactionTemplate.append("<transition><source ref=\"" + prev + "\"/><target ref=\"" + next + "\"/><label kind=\"synchronisation\">output" + (i + 1) + "_reacting!</label><label kind=\"assignment\">c := 0,\nupdateReactant" + (i + 1) + "()");
+							for (int k=0;k<nOutput;k++) {
+								reactionTemplate.append(",\noutput_reactant" + (k + 1) + SEMAPHORE_SUFFIX + " := 0");
+							}
+							reactionTemplate.append("</label></transition>");
 						} else {
-							reactionTemplate.append("<transition><source ref=\"id2\"/><target ref=\"id1\"/><label kind=\"guard\" x=\"-1096\" y=\"-640\">c&gt;=timeL" + matrixIndicesLocalList + "</label><label kind=\"synchronisation\" x=\"-1096\" y=\"-608\">output1_reacting!");
+							//If we have only one output, we only need to check that the semaphore is 0 ( = green light), and we don't even bother to change it, because we use only one transition to perform the changes we need (it would go 0 -> 1 -> 0 in the same transition, so we keep it 0)
+							reactionTemplate.append("<transition><source ref=\"id2\"/><target ref=\"id1\"/><label kind=\"guard\" x=\"-1096\" y=\"-640\">c&gt;=timeL" + matrixIndicesLocalList + "\n&& output_reactant1" + SEMAPHORE_SUFFIX + " == 0</label><label kind=\"synchronisation\" x=\"-1096\" y=\"-608\">output1_reacting!");
 							reactionTemplate.append("</label><label kind=\"assignment\" x=\"-1096\" y=\"-592\">updateReactant1(),\nc:=0</label><nail x=\"-1280\" y=\"-656\"/><nail x=\"-1280\" y=\"-560\"/><nail x=\"-1104\" y=\"-560\"/><nail x=\"-848\" y=\"-560\"/><nail x=\"-848\" y=\"-704\"/></transition>");
 						}
 						//Transition s4->s3: we "shorten the fuse" for the reaction because the upper limit has been lowered in the meantime
@@ -653,6 +667,8 @@ public class VariablesModelSMC extends VariablesModel {
 		out.append("int " + r.getId() + MAX_QUANTITY_SUFFIX + " := " + (r.get(NUMBER_OF_LEVELS).as(Integer.class) * r.get(Model.Properties.MAXIMUM_QUANTITY_GROWTH).as(Integer.class)) + ";");
 		out.append(newLine);
 		out.append("int " + r.getId() + PERCENTAGE_SUFFIX + " := " + (int)Math.round(100.0 * 10.0 * r.get(INITIAL_LEVEL).as(Integer.class) / r.get(INITIAL_QUANTITY).as(Integer.class)) + ";");
+		out.append(newLine);
+		out.append("int " + r.getId() + SEMAPHORE_SUFFIX + " := 0;");
 		out.append(newLine);
 		out.append(newLine);
 	}

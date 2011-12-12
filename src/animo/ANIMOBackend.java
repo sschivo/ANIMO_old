@@ -296,7 +296,18 @@ public class ANIMOBackend {
 					
 					
 					if (attributeName.equals(SECONDS_PER_POINT)) {
-						if (oldAttributeValue == null) return; //If there was no old value, we can do very little
+						//System.err.println("Setto il sec/point a " + newAttributeValue + ", mentre il vecchio era " + oldAttributeValue);
+						if (oldAttributeValue == null) {
+							//System.err.println("Quindi non faccio nulla");
+							return; //If there was no old value, we can do very little
+						} else {
+							//System.err.println("Quindi aggiorno il fattore di scala");
+						}
+						
+						CyNetwork network = Cytoscape.getCurrentNetwork();
+						CyAttributes networkAttributes = Cytoscape.getNetworkAttributes();
+
+						//System.err.println("Detto questo, esamino l'esistente fattore di scala: " + networkAttributes.getDoubleAttribute(network.getIdentifier(), Model.Properties.SECS_POINT_SCALE_FACTOR));
 						
 						double newSecondsPerPoint = 0, oldSecondsPerPoint = 0, factor = 0;
 						newSecondsPerPoint = Double.parseDouble(newAttributeValue.toString());
@@ -305,14 +316,14 @@ public class ANIMOBackend {
 						
 						//System.err.println("Sgamato! Hai cambiato il valore di sec/step di un fattore " + factor + "!");
 						
-						CyNetwork network = Cytoscape.getCurrentNetwork();
-						CyAttributes networkAttributes = Cytoscape.getNetworkAttributes();
 						if (networkAttributes.hasAttribute(network.getIdentifier(), Model.Properties.SECS_POINT_SCALE_FACTOR)) {
 							double val = networkAttributes.getDoubleAttribute(network.getIdentifier(), Model.Properties.SECS_POINT_SCALE_FACTOR);
+							//System.err.println("MOLTIPLICO IL VECCHIO FATTORE DI SCALA " + val + " PER " + factor);
 							val *= factor;
 							networkAttributes.setAttribute(network.getIdentifier(), Model.Properties.SECS_POINT_SCALE_FACTOR, val);
 						} else {
 							//when we don't find a value for the SECS_POINT_SCALE_FACTOR, we assume it to be 1, so the new value will be simply the value of the factor.
+							//System.err.println("NON AVENDO UN VECCHIO FATTORE DI SCALA, SETTO SEMPLICEMENTE AL NUOVO VALORE " + factor);
 							networkAttributes.setAttribute(network.getIdentifier(), Model.Properties.SECS_POINT_SCALE_FACTOR, factor);
 						}
 						

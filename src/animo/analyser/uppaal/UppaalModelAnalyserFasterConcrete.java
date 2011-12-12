@@ -537,7 +537,7 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 
 			BufferedReader br = new BufferedReader(new InputStreamReader(output));
 			String line = null;
-			Pattern globalTimePattern = Pattern.compile("globalTime[=][0-9]+");
+			Pattern globalTimePattern = Pattern.compile("globalTime[=][-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");  //Pattern.compile("globalTime[=][0-9]+"); //The new pattern supports also numbers like 3.434252e+06, which can occur(!!)
 			Pattern statePattern = Pattern.compile("[A-Za-z0-9_]+[' ']*[=][' ']*[0-9]+");
 			int time = 0;
 			int maxNumberOfLevels = m.getProperties().get(NUMBER_OF_LEVELS).as(Integer.class);
@@ -638,9 +638,11 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 					if (line.startsWith("State")) break;
 				}
 				if (line == null) break;*/
+				//System.err.println(line);
 				if (!line.startsWith("State")) continue;
 				br.readLine(); //as said before, the "State:" string ends with \n, so we need to read the next line in order to get the actual state data
 				line = br.readLine(); //and the line after that contains only the states of the processes, while we are interested in variable values, which are in the 3rd line
+				//System.err.println(line);
 				Matcher timeMatcher = globalTimePattern.matcher(line);
 				if (oldLine == null) {
 					oldLine = line;
@@ -650,15 +652,15 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 					int newTime = -1;
 					if (value.substring(0, 1).equals("=")) {
 						if (value.substring(1, 2).equals("-")) {
-							newTime = Integer.parseInt(value.substring(2, value.length()));
+							newTime = (int)Math.round(Double.parseDouble(value.substring(2, value.length())));
 						} else {
-							newTime = Integer.parseInt(value.substring(1, value.length()));
+							newTime = (int)Math.round(Double.parseDouble(value.substring(1, value.length())));
 						}
 					} else {
 						if (value.substring(0, 1).equals("-")) {
-							newTime = Integer.parseInt(value.substring(1, value.length())); //why +1??
+							newTime = (int)(Math.round(Double.parseDouble(value.substring(1, value.length())))); //why +1??
 						} else {
-							newTime = Integer.parseInt(value.substring(0, value.length())); //why +1??
+							newTime = (int)(Math.round(Double.parseDouble(value.substring(0, value.length())))); //why +1??
 						}
 					}
 					

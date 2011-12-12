@@ -337,6 +337,7 @@ public class RunAction extends CytoscapeAction {
 			
 			timeTo = (int)(nMinutesToSimulate * 60.0 / model.getProperties().get(SECONDS_PER_POINT).as(Double.class));
 			scale = (double)nMinutesToSimulate / timeTo;
+			//System.err.println("Scale = " + scale);
 			
 			//this.monitor.setStatus("Analysing model with UPPAAL");
 			this.monitor.setPercentCompleted(-1);
@@ -602,8 +603,8 @@ public class RunAction extends CytoscapeAction {
 							timesLTable.set(j, 0, VariablesModel.INFINITE_TIME);
 							timesUTable.set(j, 0, VariablesModel.INFINITE_TIME);
 						} else if (uncertainty == 0) {
-							timesLTable.set(j, 0, (int)Math.round(secStepFactor * levelsScaleFactor * t));
-							timesUTable.set(j, 0, (int)Math.round(secStepFactor * levelsScaleFactor * t));
+							timesLTable.set(j, 0, Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t)));
+							timesUTable.set(j, 0, Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t)));
 						} else {
 							//timesLTable.set(j, 0, Math.max(1, (int)Math.round(secStepFactor * t * (100.0 - uncertainty) / 100.0))); //we use Math.max because we do not want to put 0 as a time
 							//timesUTable.set(j, 0, Math.max(1, (int)Math.round(secStepFactor * t * (100.0 + uncertainty) / 100.0)));
@@ -672,8 +673,8 @@ public class RunAction extends CytoscapeAction {
 								timesL.add(VariablesModel.INFINITE_TIME);
 								timesU.add(VariablesModel.INFINITE_TIME);
 							} else if (uncertainty == 0) {
-								timesL.add((int)Math.round(secStepFactor * levelsScaleFactor * t));
-								timesU.add((int)Math.round(secStepFactor * levelsScaleFactor * t));
+								timesL.add(Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t)));
+								timesU.add(Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t)));
 							} else {
 								timesL.add(Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t * (1 - uncertainty / 100.0))));
 								timesU.add(Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t * (1 + uncertainty / 100.0))));
@@ -751,8 +752,8 @@ public class RunAction extends CytoscapeAction {
 									timesLTable.set(j, k, VariablesModel.INFINITE_TIME);
 									timesUTable.set(j, k, VariablesModel.INFINITE_TIME);
 								} else if (uncertainty == 0) {
-									timesLTable.set(j, k, (int)Math.round(secStepFactor * levelsScaleFactor * t));
-									timesUTable.set(j, k, (int)Math.round(secStepFactor * levelsScaleFactor * t));
+									timesLTable.set(j, k, Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t)));
+									timesUTable.set(j, k, Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t)));
 								} else {
 									timesLTable.set(j, k, Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t * (1 - uncertainty / 100.0))));
 									timesUTable.set(j, k, Math.max(1, (int)Math.round(secStepFactor * levelsScaleFactor * t * (1 + uncertainty / 100.0))));
