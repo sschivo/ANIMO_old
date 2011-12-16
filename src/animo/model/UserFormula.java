@@ -198,7 +198,7 @@ public class UserFormula extends Scenario {
 					|| property.equals(Model.Properties.ACTIVITY_LEVEL)
 					|| property.equals(Model.Properties.INACTIVITY_LEVEL)) {
 				
-					//TODO: if the quantity of this parameter is not influenced by anybody, the number of values does not need the * 10!!!!!!!
+					//if the quantity of this parameter is not influenced by anybody, the number of values does not need the * 10
 					int maximumGrowthFactor = 1;
 					if (nodeAttr.hasAttribute(r.getReactantIdentifier(), Model.Properties.MAXIMUM_QUANTITY_GROWTH)) {
 						maximumGrowthFactor = nodeAttr.getIntegerAttribute(r.getReactantIdentifier(), Model.Properties.MAXIMUM_QUANTITY_GROWTH);
@@ -276,7 +276,7 @@ public class UserFormula extends Scenario {
 					|| property.equals(Model.Properties.ACTIVITY_LEVEL)
 					|| property.equals(Model.Properties.INACTIVITY_LEVEL)) {
 				
-					//TODO: if the quantity of this parameter is not influenced by anybody, the number of values does not need the * 10!!!!!!!
+					//if the quantity of this parameter is not influenced by anybody, the number of values does not need the * 10
 					int maximumGrowthFactor = 1;
 					if (nodeAttr.hasAttribute(r.getReactantIdentifier(), Model.Properties.MAXIMUM_QUANTITY_GROWTH)) {
 						maximumGrowthFactor = nodeAttr.getIntegerAttribute(r.getReactantIdentifier(), Model.Properties.MAXIMUM_QUANTITY_GROWTH);

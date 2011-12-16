@@ -20,7 +20,7 @@ import animo.graph.Graph;
 import animo.model.Model;
 import animo.model.ReactantParameter;
 import animo.model.Reaction;
-
+import animo.util.Pair;
 import cytoscape.Cytoscape;
 import cytoscape.data.CyAttributes;
 
@@ -64,7 +64,8 @@ public class ANIMOResultPanel extends JPanel implements ChangeListener {
 		//We map reactant IDs to their corresponding aliases (canonical names, i.e., the names displayed to the user in the network window), so that
 		//we will be able to use graph series names consistent with what the user has chosen.
 		Map<String, String> seriesNameMapping = new HashMap<String, String>();
-		Vector<String> filteredSeriesNames = new Vector<String>(); //profit from the cycle for the series mapping to create a filter for the series to be actually plotted
+		Vector<String> filteredSeriesNames = new Vector<String>(), //profit from the cycle for the series mapping to create a filter for the series to be actually plotted
+					   secondBlockSeriesNames = new Vector<String>();
 		for (String r : result.getReactantIds()) {
 			String name = null;
 			String originalR = r;
@@ -76,13 +77,16 @@ public class ANIMOResultPanel extends JPanel implements ChangeListener {
 				}
 			} else if (rLower.contains(VariablesModel.ACTIVITY_SUFFIX)
 					|| rLower.contains(VariablesModel.QUANTITY_SUFFIX)
-					|| rLower.contains(VariablesModel.MAX_QUANTITY_SUFFIX)) {
+					|| rLower.contains(VariablesModel.MAX_QUANTITY_SUFFIX)
+					|| rLower.contains(VariablesModel.PERCENTAGE_SUFFIX)) {
 				if (rLower.contains(VariablesModel.ACTIVITY_SUFFIX)) {
 					r = r.substring(0, r.lastIndexOf(VariablesModel.ACTIVITY_SUFFIX)) + r.substring(r.lastIndexOf(VariablesModel.ACTIVITY_SUFFIX) + VariablesModel.ACTIVITY_SUFFIX.length());
 				} else if (rLower.contains(VariablesModel.MAX_QUANTITY_SUFFIX)) {
 					r = r.substring(0, r.lastIndexOf(VariablesModel.MAX_QUANTITY_SUFFIX)) + r.substring(r.lastIndexOf(VariablesModel.MAX_QUANTITY_SUFFIX) + VariablesModel.MAX_QUANTITY_SUFFIX.length());
 				} else if (rLower.contains(VariablesModel.QUANTITY_SUFFIX)) {
 					r = r.substring(0, r.lastIndexOf(VariablesModel.QUANTITY_SUFFIX)) + r.substring(r.lastIndexOf(VariablesModel.QUANTITY_SUFFIX) + VariablesModel.QUANTITY_SUFFIX.length());
+				} else if (rLower.contains(VariablesModel.PERCENTAGE_SUFFIX)) {
+					r = r.substring(0, r.lastIndexOf(VariablesModel.PERCENTAGE_SUFFIX)) + r.substring(r.lastIndexOf(VariablesModel.PERCENTAGE_SUFFIX) + VariablesModel.PERCENTAGE_SUFFIX.length());
 				}
 				if (rLower.contains(ResultAverager.STD_DEV)) {
 					r = r.substring(0, r.lastIndexOf(ResultAverager.STD_DEV)) + r.substring(r.lastIndexOf(ResultAverager.STD_DEV) + ResultAverager.STD_DEV.length());
@@ -118,11 +122,12 @@ public class ANIMOResultPanel extends JPanel implements ChangeListener {
 				}
 				boolean plotted = model.getReactant(r).get(Model.Properties.PLOTTED).as(Boolean.class);
 				if (plotted) {
-					if (rLower.contains(VariablesModel.ACTIVITY_SUFFIX) && activityInvolved) {
+					if (rLower.contains(VariablesModel.PERCENTAGE_SUFFIX) && activityInvolved) { //We use the % value of activity level instead of its "discrete levels" value (ACTIVITY_LEVEL)
 						name += " activity";
 						filteredSeriesNames.add(originalR);
+						secondBlockSeriesNames.add(originalR); //Represent the % with a separate scale
 					} else if (rLower.contains(VariablesModel.QUANTITY_SUFFIX) && quantityInvolved) {
-						name += " quantity";
+						name += " concentration";
 						filteredSeriesNames.add(originalR);
 					}
 				}
@@ -149,18 +154,38 @@ public class ANIMOResultPanel extends JPanel implements ChangeListener {
 		if (filteredSeriesNames.isEmpty()) {
 			JOptionPane.showMessageDialog(Cytoscape.getDesktop(), "This should never happen: none of the reactants selected for plotting are influenced by enabled reactions.");
 		}
-		g.parseLevelResult(result.filter(filteredSeriesNames), seriesNameMapping, scale); //Add all series to the graph, using the mapping we built here to "translate" the names into the user-defined ones.
+		Pair<LevelResult, LevelResult> blocks = result.filter(filteredSeriesNames).split(secondBlockSeriesNames);
+		LevelResult firstBlock = blocks.first,
+					secondBlock = blocks.second;
+		if (!firstBlock.isEmpty()) {
+			g.parseLevelResult(firstBlock, seriesNameMapping, scale); //Add all series to the graph, using the mapping we built here to "translate" the names into the user-defined ones.
+			g.setMainYLabel("mM");
+		}
+		if (!firstBlock.isEmpty() && !secondBlock.isEmpty()) {
+			g.parseLevelResult(secondBlock, seriesNameMapping, scale, true); //Add all series to the graph, using the mapping we built here to "translate" the names into the user-defined ones.
+			g.setSecondaryYLabel("%");
+		} else if (!secondBlock.isEmpty()) {
+			g.parseLevelResult(secondBlock, seriesNameMapping, scale); //we go as first, if we are alone
+			g.setMainYLabel("%");
+		}
 		g.setXSeriesName("Time (min)");
-
+		
 		if (!model.getProperties().get(Model.Properties.NUMBER_OF_LEVELS).isNull()) { //if we find a maximum value for activity levels, we declare it to the graph, so that other added graphs (such as experimental data) will be automatically rescaled to match us
-			int nLevels = model.getProperties().get(Model.Properties.NUMBER_OF_LEVELS).as(Integer.class);
-			g.declareMaxYValue(nLevels);
+			double maxY = 0;
+			if (!firstBlock.isEmpty()) {
+				maxY = Math.max(maxY, firstBlock.getMaximumValue());
+			}
+			if (!secondBlock.isEmpty()) {
+				maxY = Math.max(maxY, secondBlock.getMaximumValue());
+			}
+			//int nLevels = model.getProperties().get(Model.Properties.NUMBER_OF_LEVELS).as(Integer.class);
+			g.declareMaxYValue(maxY);
 			double maxTime = scale * result.getTimeIndices().get(result.getTimeIndices().size()-1);
-			g.setDrawArea(0, (int)maxTime, 0, nLevels); //This is done because the graph automatically computes the area to be shown based on minimum and maximum values for X and Y, including StdDev. So, if the StdDev of a particular series (which represents an average) in a particular point is larger that the value of that series in that point, the minimum y value would be negative. As this is not very nice to see, I decided that we will recenter the graph to more strict bounds instead.
+			g.setDrawArea(0, (int)maxTime, 0, (int)Math.round(maxY)); //This is done because the graph automatically computes the area to be shown based on minimum and maximum values for X and Y, including StdDev. So, if the StdDev of a particular series (which represents an average) in a particular point is larger that the value of that series in that point, the minimum y value would be negative. As this is not very nice to see, I decided that we will recenter the graph to more strict bounds instead.
 		}
 		this.add(g, BorderLayout.CENTER);
 	}
-
+	
 	/**
 	 * When the user moves the time slider, we update the activity ratio (SHOWN_LEVEL) of
 	 * all nodes in the network window, so that, thanks to the continuous Visual Mapping
@@ -185,6 +210,8 @@ public class ANIMOResultPanel extends JPanel implements ChangeListener {
 			double qty = result.getConcentration(realR + VariablesModel.QUANTITY_SUFFIX, t),
 				   act = result.getConcentration(realR + VariablesModel.ACTIVITY_SUFFIX, t);
 			nodeAttributes.setAttribute(id, Model.Properties.SHOWN_LEVEL, act / qty);
+			/*double perc = result.getConcentration(realR + VariablesModel.PERCENTAGE_SUFFIX, t); //TODO: It would be more correct to directly use the percentage value, but at the moment it is scaled to the "maximum level" in the model, which makes very little sense
+			nodeAttributes.setAttribute(id, Model.Properties.SHOWN_LEVEL, perc / 100.0);*/
 		}
 
 		Cytoscape.firePropertyChange(Cytoscape.ATTRIBUTES_CHANGED, null, null);

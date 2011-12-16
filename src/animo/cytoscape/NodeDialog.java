@@ -10,17 +10,18 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
-import java.util.Dictionary;
-import java.util.Hashtable;
+import java.text.DecimalFormat;
 
 import javax.swing.AbstractAction;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
+import javax.swing.InputVerifier;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JLabel;
+import javax.swing.JFormattedTextField;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JSlider;
@@ -29,7 +30,6 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
 import animo.model.Model;
-
 import cytoscape.Cytoscape;
 import cytoscape.data.CyAttributes;
 
@@ -42,6 +42,7 @@ import cytoscape.data.CyAttributes;
 public class NodeDialog extends JDialog {
 	
 	private static final long serialVersionUID = 1498730989498413815L;
+	private static final String DECIMAL_FORMAT_STRING = "##.####";
 	
 	public NodeDialog(final Node node) {
 		this(Cytoscape.getDesktop(), node);
@@ -52,7 +53,6 @@ public class NodeDialog extends JDialog {
 	 * 
 	 * @param node the node to display for.
 	 */
-	@SuppressWarnings("unchecked")
 	public NodeDialog(final Window owner, final Node node) {
 		super(owner, "Reactant '" + node.getIdentifier() + "'", Dialog.ModalityType.APPLICATION_MODAL);
 		CyAttributes networkAttributes = Cytoscape.getNetworkAttributes(),
@@ -100,15 +100,95 @@ public class NodeDialog extends JDialog {
 			activity = 0;
 		}
 		
+		double concentration;
+		if (nodeAttributes.hasAttribute(node.getIdentifier(), Model.Properties.CONCENTRATION)) {
+			concentration = nodeAttributes.getDoubleAttribute(node.getIdentifier(), Model.Properties.CONCENTRATION);
+		} else {
+			if (quantity > 0) {
+				concentration = 100.0 / levels * quantity;
+			} else {
+				concentration = 0;
+			}
+		}
+		
+		double stepSize;
+		if (nodeAttributes.hasAttribute(node.getIdentifier(), Model.Properties.STEP_SIZE)) {
+			stepSize = nodeAttributes.getDoubleAttribute(node.getIdentifier(), Model.Properties.STEP_SIZE);
+			System.err.println("Trovato stepSize = " + stepSize);
+		} else {
+			if (concentration > 0) {
+				stepSize = concentration / 10;
+			} else {
+				stepSize = levels / 10.0;
+			}
+			System.err.println("stepSize non c'era, ho dovuto calcolarlo = " + stepSize);
+		}
+		
+		int percActivity;
+		if (nodeAttributes.hasAttribute(node.getIdentifier(), Model.Properties.PERCENTUAL_ACTIVITY)) {
+			percActivity = nodeAttributes.getIntegerAttribute(node.getIdentifier(), Model.Properties.PERCENTUAL_ACTIVITY);
+		} else {
+			if (quantity > 0) {
+				percActivity = (int)Math.round(activity * 100.0 / quantity);
+			} else {
+				percActivity = 0;
+			}
+		}
+		
 		//JLabel nameLabel = new JLabel("Reactant name:");
 		final JTextField nameField = new JTextField(name);
 		//values.add(nameLabel, new GridBagConstraints(0, 0, 1, 1, 0.3, 0.0, GridBagConstraints.LINE_START, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
 		//values.add(nameField, new GridBagConstraints(1, 0, 1, 1, 1, 0.0, GridBagConstraints.LINE_END, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
 		values.add(new LabelledField("Name", nameField), new GridBagConstraints(0, 0, 1, 1, 0.5, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 0, 0));
 		
+		DecimalFormat format = new DecimalFormat(DECIMAL_FORMAT_STRING);
+		format.setMinimumFractionDigits(8);
+		final JFormattedTextField initialConcentration = new JFormattedTextField(format);
+		values.add(new LabelledField("Initial concentration (mM)", initialConcentration), new GridBagConstraints(1, 0, 1, 1, 0.5, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 2, 2));
+		initialConcentration.setValue(concentration);
+		final JFormattedTextField granularityStep = new JFormattedTextField(format);
+		granularityStep.setValue(stepSize);
+		granularityStep.setInputVerifier(new InputVerifier() {
+			@Override
+			public boolean verify(JComponent input) {
+				Object o = granularityStep.getValue();
+				if (o == null) return false;
+				Double d;
+				try {
+					d = Double.parseDouble(o.toString());
+				} catch (Exception ex) {
+					return false;
+				}
+				Double conc;
+				try {
+					conc = Double.parseDouble(initialConcentration.getValue().toString());
+				} catch (Exception ex) {
+					return false; //e non per colpa mia..
+				}
+				if (d <= 0 || (conc > 0 && d > conc)) {
+					return false;
+				}
+				return true;
+			}
+		});
+		values.add(new LabelledField("Discrete step (mM)", granularityStep), new GridBagConstraints(1, 1, 1, 1, 0.5, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 2, 2));
+		final JSlider initialActivity = new JSlider(0, 100);
+		initialActivity.setValue(percActivity);
+		initialActivity.setMajorTickSpacing(20);
+		initialActivity.setMinorTickSpacing(10);
+		initialActivity.setPaintLabels(true);
+		initialActivity.setPaintTicks(true);
+		final LabelledField initialLevelField = new LabelledField("Initial activity: " + initialActivity.getValue() + " %", initialActivity);
+		values.add(initialLevelField, new GridBagConstraints(1, 2, 1, 1, 0.5, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 2, 2));
+		initialActivity.addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				initialLevelField.setTitle("Initial activity: " + initialActivity.getValue() + " %");
+			}
+		});
 		//final JLabel totalLevelsLabel = new JLabel("Total activity levels: " + levels);
 		//values.add(totalLevelsLabel, new GridBagConstraints(0, 1, 1, 1, 0.3, 0.0, GridBagConstraints.LINE_START, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
-		final JSlider totalLevels = new JSlider(1, 100);
+		/*final JSlider totalLevels = new JSlider(1, 100);
 		totalLevels.setValue(levels);
 		totalLevels.setMajorTickSpacing(20);
 		totalLevels.setMinorTickSpacing(10);
@@ -209,7 +289,7 @@ public class NodeDialog extends JDialog {
 				initialLevelField.setTitle("Initial activity level: " + initialConcentration.getValue());
 			}
 			
-		});
+		});*/
 		
 		
 		Box optionBoxes = new Box(BoxLayout.Y_AXIS);
@@ -281,13 +361,28 @@ public class NodeDialog extends JDialog {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				CyAttributes nodeAttributes = Cytoscape.getNodeAttributes();
-				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.INITIAL_LEVEL,
-						initialConcentration.getValue());
+				int initialQty, numberOfLev, initialActPerc, initialAct;
+				double initialConc, granularitySt;
+				initialConc = Double.parseDouble(initialConcentration.getValue().toString());
+				granularitySt = Double.parseDouble(granularityStep.getValue().toString());
+				initialQty = (int)Math.round(initialConc / granularitySt);
+				if (initialQty == 0) {
+					numberOfLev = 10; 
+				} else {
+					numberOfLev = initialQty;
+				}
+				initialActPerc = initialActivity.getValue();
+				initialAct = (int)Math.round(initialActPerc / 100.0 * initialQty);
 				
-				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.NUMBER_OF_LEVELS, totalLevels.getValue());
-				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.INITIAL_QUANTITY, initialQuantity.getValue());
+				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.CONCENTRATION, initialConc);
+				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.STEP_SIZE, granularitySt);
+				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.PERCENTUAL_ACTIVITY, initialActPerc);
+				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.NUMBER_OF_LEVELS, numberOfLev);
+				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.INITIAL_QUANTITY, initialQty);
+				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.INITIAL_LEVEL, initialAct);
 				
-				double activityRatio = (double)initialConcentration.getValue() / initialQuantity.getValue();
+				double activityRatio = initialActPerc / 100.0;
+				/*double activityRatio = (double)initialAct / initialQty;*/
 				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.SHOWN_LEVEL, activityRatio);
 				
 				if (nameField.getText() != null && nameField.getText().length() > 0) {

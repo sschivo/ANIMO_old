@@ -382,8 +382,9 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 		
 		private static final String INITIAL_LEVEL = Model.Properties.INITIAL_LEVEL;
 		//private static final String ALIAS = Model.Properties.ALIAS;
-		private static final String NUMBER_OF_LEVELS = Model.Properties.NUMBER_OF_LEVELS;
+		//private static final String NUMBER_OF_LEVELS = Model.Properties.NUMBER_OF_LEVELS;
 		private static final String INITIAL_QUANTITY = Model.Properties.INITIAL_QUANTITY;
+		private static final String STEP_SIZE = Model.Properties.STEP_SIZE;
 		private TaskMonitor monitor = null;
 		
 		public VariablesInterpreterConcrete(TaskMonitor monitor) {
@@ -540,8 +541,10 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 			Pattern globalTimePattern = Pattern.compile("globalTime[=][-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");  //Pattern.compile("globalTime[=][0-9]+"); //The new pattern supports also numbers like 3.434252e+06, which can occur(!!)
 			Pattern statePattern = Pattern.compile("[A-Za-z0-9_]+[' ']*[=][' ']*[0-9]+");
 			int time = 0;
-			int maxNumberOfLevels = m.getProperties().get(NUMBER_OF_LEVELS).as(Integer.class);
-			HashMap<String, Double> numberOfLevels = new HashMap<String, Double>();
+		//	int maxNumberOfLevels = m.getProperties().get(NUMBER_OF_LEVELS).as(Integer.class);
+			HashMap<String, Double> maximumValues = new HashMap<String, Double>();
+			HashMap<String, Double> stepSizes = new HashMap<String, Double>();
+		//	double maximumValue = Double.NEGATIVE_INFINITY;
 			
 			while ((line = br.readLine()) != null) {
 				if (!line.startsWith("State"))
@@ -561,8 +564,10 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 						reactantId = s.substring(0, s.indexOf('='));
 					}
 					if (reactantId.equals("c") || reactantId.equals("globalTime") || reactantId.equals("r")
-						|| reactantId.startsWith("input_reactant_") || reactantId.startsWith("output_reactant_")
-						|| reactantId.equals("r1") || reactantId.equals("r2")) continue; //private variables are not taken into account
+						|| reactantId.startsWith("input_reactant_") || reactantId.startsWith("output_reactant_") //private variables are not taken into account
+						|| reactantId.equals("r1") || reactantId.equals("r2")
+						|| reactantId.endsWith(VariablesModel.MAX_QUANTITY_SUFFIX)
+						|| reactantId.endsWith("_sem")) continue; //Nor do we need to count semaphores
 					// put the reactant into the result map
 					TreeMap<Double, Double> levs = new TreeMap<Double, Double>();
 					double startingLevel;
@@ -572,6 +577,7 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 						startingLevel = 0.0;
 					}
 					levs.put(0.0, startingLevel);
+					//System.err.println("Livello iniziale di " + reactantId + " = " + startingLevel);
 					levels.put(reactantId, levs);
 				}
 				break;
@@ -599,9 +605,9 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 						nLvl = maxNumberOfLevels;
 					}
 				}*/
-				int nLvl = r.get(NUMBER_OF_LEVELS).as(Integer.class);
+			//	int nLvl = r.get(NUMBER_OF_LEVELS).as(Integer.class);
 				
-				if (levels.containsKey(r.getId() + VariablesModel.ACTIVITY_SUFFIX)) {
+				/*if (levels.containsKey(r.getId() + VariablesModel.ACTIVITY_SUFFIX)) {
 					double initialLevel = r.get(INITIAL_LEVEL).as(Integer.class);
 					initialLevel = initialLevel / (double)nLvl * (double)maxNumberOfLevels; //of course, the initial "concentration" itself needs to be rescaled correctly
 					levels.get(r.getId() + VariablesModel.ACTIVITY_SUFFIX).put(0.0, initialLevel);
@@ -613,11 +619,50 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 					levels.get(r.getId() + VariablesModel.QUANTITY_SUFFIX).put(0.0, initialQuantity);
 					numberOfLevels.put(r.getId() + VariablesModel.QUANTITY_SUFFIX, (double)nLvl);
 				}
+				if (levels.containsKey(r.getId() + VariablesModel.PERCENTAGE_SUFFIX)) {
+					double initialPercentage;
+					if (r.get(INITIAL_LEVEL).as(Integer.class) == 0) {
+						initialPercentage = 0;
+					} else {
+						initialPercentage = 100.0 * r.get(INITIAL_QUANTITY).as(Integer.class) / r.get(INITIAL_LEVEL).as(Integer.class);
+					}
+					initialPercentage = initialPercentage / 100.0 * (double)maxNumberOfLevels;
+					levels.get(r.getId() + VariablesModel.PERCENTAGE_SUFFIX).put(0.0, initialPercentage);
+					numberOfLevels.put(r.getId() + VariablesModel.PERCENTAGE_SUFFIX, 100.0);
+				}
 				if (levels.containsKey(r.getId())) { //Backward compatibility (non credo verrà mai usato, in verità)
 					double initialLevel = r.get(INITIAL_LEVEL).as(Integer.class);
 					initialLevel = initialLevel / (double)nLvl * (double)maxNumberOfLevels; //of course, the initial "concentration" itself needs to be rescaled correctly
 					levels.get(r.getId()).put(0.0, initialLevel);
 					numberOfLevels.put(r.getId(), (double)nLvl);
+				}*/
+				if (levels.containsKey(r.getId() + VariablesModel.ACTIVITY_SUFFIX)) {
+					double initialLevel = r.get(INITIAL_LEVEL).as(Integer.class);
+					levels.get(r.getId() + VariablesModel.ACTIVITY_SUFFIX).put(0.0, initialLevel);
+					maximumValues.put(r.getId() + VariablesModel.ACTIVITY_SUFFIX, initialLevel);
+					stepSizes.put(r.getId() + VariablesModel.ACTIVITY_SUFFIX, r.get(STEP_SIZE).as(Double.class));
+				}
+				if (levels.containsKey(r.getId() + VariablesModel.QUANTITY_SUFFIX)) {
+					double initialQuantity = r.get(INITIAL_QUANTITY).as(Integer.class);
+					levels.get(r.getId() + VariablesModel.QUANTITY_SUFFIX).put(0.0, initialQuantity);
+					maximumValues.put(r.getId() + VariablesModel.QUANTITY_SUFFIX, initialQuantity);
+					stepSizes.put(r.getId() + VariablesModel.QUANTITY_SUFFIX, r.get(STEP_SIZE).as(Double.class));
+				}
+				if (levels.containsKey(r.getId() + VariablesModel.PERCENTAGE_SUFFIX)) {
+					double initialPercentage;
+					if (r.get(INITIAL_QUANTITY).as(Integer.class) == 0) {
+						initialPercentage = 0;
+					} else {
+						initialPercentage = 100.0 * r.get(INITIAL_LEVEL).as(Integer.class) / r.get(INITIAL_QUANTITY).as(Integer.class);
+					}
+					levels.get(r.getId() + VariablesModel.PERCENTAGE_SUFFIX).put(0.0, initialPercentage);
+					//maximumValues.put(r.getId() + VariablesModel.PERCENTAGE_SUFFIX, initialPercentage); //we don't need to have a maximum for the % values: it is of course 100
+				}
+				if (levels.containsKey(r.getId())) { //Backward compatibility (non credo verrà mai usato, in verità)
+					double initialLevel = r.get(INITIAL_LEVEL).as(Integer.class);
+					levels.get(r.getId()).put(0.0, initialLevel);
+					maximumValues.put(r.getId(), initialLevel);
+					stepSizes.put(r.getId(), r.get(STEP_SIZE).as(Double.class));
 				}
 			}
 			
@@ -681,24 +726,40 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 							} else {
 								reactantId = s.substring(0, s.indexOf('='));
 							}
-							if (reactantId.equals("c") || reactantId.equals("globalTime") || reactantId.equals("r")
+							/*if (reactantId.equals("c") || reactantId.equals("globalTime") || reactantId.equals("r")
 								|| reactantId.startsWith("input_reactant_") || reactantId.startsWith("output_reactant_")
-								|| reactantId.equals("r1") || reactantId.equals("r2") || numberOfLevels.get(reactantId) == null) continue; //we check whether it is a private variable
+								|| reactantId.equals("r1") || reactantId.equals("r2") || maximumValues.get(reactantId) == null) continue; //we check whether it is a private variable*/
+							if (!levels.containsKey(reactantId)) continue;
 							// we can determine the level of activation
-							int level = Integer.valueOf(s.substring(s.indexOf("=") + 1).trim());
-							if (numberOfLevels.get(reactantId) != maxNumberOfLevels) {
-								level = (int)(level / (double)numberOfLevels.get(reactantId) * (double)maxNumberOfLevels);
+							double level = Integer.valueOf(s.substring(s.indexOf("=") + 1).trim());
+							if (!reactantId.endsWith(VariablesModel.PERCENTAGE_SUFFIX)) {
+								level = level * stepSizes.get(reactantId);
+								/*if (maximumValues.get(reactantId) < level) { //the maximum for this series
+									maximumValues.put(reactantId, level);
+								}
+								if (maximumValue < level) { //the maximum for in the absolute
+									maximumValue = level;
+								}*/
+							} else {
+								level = level / 10;
 							}
+							/*if (maximumValues.get(reactantId) != maxNumberOfLevels) {
+								if (reactantId.endsWith(VariablesModel.PERCENTAGE_SUFFIX)) {
+									level = (level / (double)maximumValues.get(reactantId) * (double)maxNumberOfLevels) / 10.0;
+								} else {
+									level = level / (double)maximumValues.get(reactantId) * (double)maxNumberOfLevels;
+								}
+							}*/
 							//System.err.print(", " + reactantId + " = " + level);
 							
 							SortedMap<Double, Double> rMap = levels.get(reactantId);
-							if (rMap.get(rMap.lastKey()) != level) {
+							//if (rMap.get(rMap.lastKey()) != level) { //if we didn't register a variation, we don't plot a point
 								/*if (rMap.lastKey() < time - 1) { //We use this piece to explicitly keep a level constant when it is not varying (i.e., the graph will never contain non-vertical,non-horizontal lines)
 									rMap.put((double)(time - 1), rMap.get(rMap.lastKey()));
 								}*/
 								
-								rMap.put((double)time, (double)level);
-							}
+								rMap.put((double)time, level);
+							//}
 						}
 						//System.err.println();
 						oldLine = line;
@@ -711,11 +772,34 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 			}
 			//if (time < timeTo) { //if the state of the system remains unchanged from a certain time on (and so UPPAAL terminates on that point), but we asked for a later time, we add a final point where all data remain unchanged, so that the user can see the "evolution" up to the requested point
 			//we do it always, because there can be some situations in which reactants are not read while time increases, and thus we can reach the end of time without having an updated value for each reactant
+				//double ziomuflone = Double.NEGATIVE_INFINITY;
 				for (String reactantName : levels.keySet()) {
 					SortedMap<Double, Double> values = levels.get(reactantName);
 					double lastValue = values.get(values.lastKey());
 					values.put((double)timeTo, lastValue);
+					
+					/*try {
+						//..and then rescale all the values with respect to the correct maximum (which is maximumValue for all except the % values, for which it is of course 100)
+						double max, myMax;
+						max = maximumValue;
+						if (reactantName.endsWith(VariablesModel.PERCENTAGE_SUFFIX)) {
+							myMax = 100.0;
+							continue;
+						} else {
+							myMax = maximumValues.get(reactantName);
+						}
+						System.err.println("Normalizzo il reagente " + reactantName + " che ha massimo suo = " + myMax + " al massimo assoluto " + max);
+						for (Double t : values.keySet()) {
+							double v = values.get(t);
+							v = v / myMax * max;
+							if (v > ziomuflone) ziomuflone = v;
+							values.put(t, v);
+						}
+					} catch (Exception ex) {
+						ex.printStackTrace(System.err);
+					}*/
 				}
+				//System.err.println("Il valore massimo che ho ottenuto normalizzando è " + ziomuflone);
 			//}
 			
 			endTime = System.currentTimeMillis();

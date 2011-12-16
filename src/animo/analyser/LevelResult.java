@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 
+import animo.util.Pair;
+
 /**
  * The concentrations result contains information about the analysis of the
  * activation levels of each substrate in a model.
@@ -48,5 +50,9 @@ public interface LevelResult {
 	
 	public boolean isEmpty();
 	
+	public double getMaximumValue();
+	
 	public LevelResult filter(Vector<String> acceptedNames);
+	
+	public Pair<LevelResult, LevelResult> split(Vector<String> onlyInTheSecond); //Split the result into two results, the first one withOUT any element whose name is in onlyInTheSecond, while the second one contains only the names in that Vector
 }

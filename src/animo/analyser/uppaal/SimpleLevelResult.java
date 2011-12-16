@@ -15,6 +15,7 @@ import java.util.Vector;
 import java.util.Map.Entry;
 
 import animo.analyser.LevelResult;
+import animo.util.Pair;
 
 /**
  * A very simple data container for the concentration/time data.
@@ -25,12 +26,22 @@ import animo.analyser.LevelResult;
 public class SimpleLevelResult implements LevelResult, Serializable {
 	private static final long serialVersionUID = 5440819034905472745L;
 	Map<String, SortedMap<Double, Double>> levels;
+	private double max = Double.NEGATIVE_INFINITY;
 
 	/**
 	 * @param levels the levels to enter
 	 */
 	public SimpleLevelResult(Map<String, SortedMap<Double, Double>> levels) {
 		this.levels = levels;
+		for (String k : levels.keySet()) {
+			SortedMap<Double, Double> map = levels.get(k);
+			for (Double t : map.keySet()) {
+				double v = map.get(t);
+				if (v > max) {
+					max = v;
+				}
+			}
+		}
 	}
 
 	@Override
@@ -98,6 +109,11 @@ public class SimpleLevelResult implements LevelResult, Serializable {
 	}
 	
 	@Override
+	public double getMaximumValue() {
+		return max;
+	}
+	
+	@Override
 	public LevelResult filter(Vector<String> acceptedNames) {
 		Map<String, SortedMap<Double, Double>> lev = new HashMap<String, SortedMap<Double, Double>>();
 		for (String s : levels.keySet()) {
@@ -107,5 +123,22 @@ public class SimpleLevelResult implements LevelResult, Serializable {
 		}
 		SimpleLevelResult res = new SimpleLevelResult(lev);
 		return res;
+	}
+	
+	@Override
+	public Pair<LevelResult, LevelResult> split(Vector<String> onlyInTheSecond) {
+		Map<String, SortedMap<Double, Double>> lev1 = new HashMap<String, SortedMap<Double, Double>>(),
+											   lev2 = new HashMap<String, SortedMap<Double, Double>>();
+		for (String s : levels.keySet()) {
+			SortedMap<Double, Double> m = levels.get(s);
+			if (onlyInTheSecond.contains(s)) {
+				lev2.put(s, m);
+			} else {
+				lev1.put(s, m);
+			}
+		}
+		SimpleLevelResult res1 = new SimpleLevelResult(lev1),
+						  res2 = new SimpleLevelResult(lev2);
+		return new Pair<LevelResult, LevelResult>(res1, res2);
 	}
 }

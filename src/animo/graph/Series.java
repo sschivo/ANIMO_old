@@ -24,7 +24,8 @@ public class Series {
 	private P[] data = null;
 	private String name = "";
 	private boolean enabled = true;
-	private Scale scale = null;
+	private ScaleX xScale = null;
+	private ScaleY yScale = null;
 	private Series master = null, slave = null; //ideally, the slave series should be used to represent confidence intervals for the corresponding master series
 	//TODO: also here, we assume that ResultAverager.STD_DEV is all lowercase
 	public static String SLAVE_SUFFIX = ResultAverager.STD_DEV; //for a series to be a representation of confidence intervals of series ABC, its name should be "ABC" + SLAVE_SUFFIX (suffix can have any capitalization).
@@ -34,23 +35,25 @@ public class Series {
 	private BarsState barsState = BarsState.ONLY_BARS; //valid only if this Series is a slave. Tells to show the vertical error bars
 	
 	public Series(P[] data) {
-		this(data, new Scale());
+		this(data, new ScaleX(), new ScaleY());
 	}
 	
-	public Series(P[] data, Scale scale) {
-		this(data, scale, "Series " + (++seriesCounter)); 
+	public Series(P[] data, ScaleX xScale, ScaleY yScale) {
+		this(data, xScale, yScale, "Series " + (++seriesCounter)); 
 	}
 	
-	public Series(P[] data, Scale scale, String name) {
+	public Series(P[] data, ScaleX xScale, ScaleY yScale, String name) {
 		this.data = data;
-		this.setScale(scale);
+		this.setScales(xScale, yScale);
 		this.name = name;
 	}
 	
-	public void setScale(Scale scale) {
-		this.scale = scale;
+	public void setScales(ScaleX xScale, ScaleY yScale) {
+		this.xScale = xScale;
+		this.yScale = yScale;
 		if (!isSlave()) {
-			this.scale.addData(data);
+			this.xScale.addData(data);
+			this.yScale.addData(data);
 		} else {
 			P[] dataLow = new P[data.length];
 			P[] dataHigh = new P[data.length];
@@ -58,13 +61,19 @@ public class Series {
 				dataLow[i] = new P(data[i].x, master.data[i].y - data[i].y);
 				dataHigh[i] = new P(data[i].x, master.data[i].y + data[i].y);
 			}
-			this.scale.addData(dataLow);
-			this.scale.addData(dataHigh);
+			this.xScale.addData(dataLow);
+			this.xScale.addData(dataHigh);
+			this.yScale.addData(dataLow);
+			this.yScale.addData(dataHigh);
 		}
 	}
 	
-	public Scale getScale() {
-		return this.scale;
+	public ScaleX getScaleX() {
+		return this.xScale;
+	}
+	
+	public ScaleY getScaleY() {
+		return this.yScale;
 	}
 	
 	public String getName() {
@@ -96,7 +105,7 @@ public class Series {
 	
 	private void setMaster(Series s, boolean propagate) {
 		this.master = s;
-		this.setScale(this.master.getScale());
+		this.setScales(this.master.getScaleX(), this.master.getScaleY());
 		if (propagate) {
 			s.setSlave(this, false);
 		}
@@ -160,11 +169,12 @@ public class Series {
 	}
 	
 	public void plot(Graphics2D g, Rectangle bounds) {
-		scale.computeScale(bounds);
-		double scaleX = scale.getXScale(),
-			   scaleY = scale.getYScale(),
-			   minX = scale.getMinX(),
-			   minY = scale.getMinY();
+		xScale.computeScale(bounds);
+		yScale.computeScale(bounds);
+		double scaleX = xScale.getXScale(),
+			   scaleY = yScale.getYScale(),
+			   minX = xScale.getMinX(),
+			   minY = yScale.getMinY();
 		if (!enabled) return;
 		
 		if (isSlave()) {

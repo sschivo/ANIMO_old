@@ -605,7 +605,7 @@ public class VariablesModelSMC extends VariablesModel {
 							reactionTemplate.append("</label></transition>");
 						} else {
 							//If we have only one output, we only need to check that the semaphore is 0 ( = green light), and we don't even bother to change it, because we use only one transition to perform the changes we need (it would go 0 -> 1 -> 0 in the same transition, so we keep it 0)
-							reactionTemplate.append("<transition><source ref=\"id2\"/><target ref=\"id1\"/><label kind=\"guard\" x=\"-1096\" y=\"-640\">c&gt;=timeL" + matrixIndicesLocalList + "\n&& output_reactant1" + SEMAPHORE_SUFFIX + " == 0</label><label kind=\"synchronisation\" x=\"-1096\" y=\"-608\">output1_reacting!");
+							reactionTemplate.append("<transition><source ref=\"id2\"/><target ref=\"id1\"/><label kind=\"guard\" x=\"-1096\" y=\"-640\">c&gt;=timeL" + matrixIndicesLocalList + "\n&amp;&amp; output_reactant1" + SEMAPHORE_SUFFIX + " == 0</label><label kind=\"synchronisation\" x=\"-1096\" y=\"-608\">output1_reacting!");
 							reactionTemplate.append("</label><label kind=\"assignment\" x=\"-1096\" y=\"-592\">updateReactant1(),\nc:=0</label><nail x=\"-1280\" y=\"-656\"/><nail x=\"-1280\" y=\"-560\"/><nail x=\"-1104\" y=\"-560\"/><nail x=\"-848\" y=\"-560\"/><nail x=\"-848\" y=\"-704\"/></transition>");
 						}
 						//Transition s4->s3: we "shorten the fuse" for the reaction because the upper limit has been lowered in the meantime

@@ -71,7 +71,12 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	
 	private Vector<Series> data = null; //the Series plotted in the graph
 	private Vector<String> selectedColumns = null; //the names of the Series to be shown (all others are hidden)
-	private Scale scale = null; //contains scale factors
+	private ScaleX xScale = null;
+	private ScaleY mainYScale = null, //contains scale factors
+				  secondaryYScale = null; //we can also plot two graphs, choosing for each series which scale to use (thus obtaining effectively two Y axes)
+	private String mainYLabel = "",
+				   secondaryYLabel = "";
+	private boolean usingSecondaryScale = false;
 	private String xSeriesName = null; //the name for the X axis
 	private JPopupMenu popupMenu = null;
 	private boolean showLegend = true;
@@ -84,12 +89,15 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	private Rectangle zoomRectangleBounds = null; //The bounds inside which to draw the zoom rectangle when showing it to the user
 	private int oldLegendX = 0, oldLegendY = 0; //Used to move the legend
 	private int SCALA = 1; //used to implement some kind of "zooming" (see the events related to mouse wheel)
-	private final int BORDER_X = 25, BORDER_Y = 25; //width of the border around the graph area (in pixel). Notice that it is scaled with SCALA, like all other constants for the drawing
+	private final int BORDER_X = 10, BORDER_Y = 25; //width of the border around the graph area (in pixel). Notice that it is scaled with SCALA, like all other constants for the drawing
 	
 	public Graph() {
 		data = new Vector<Series>();
 		selectedColumns = new Vector<String>();
-		scale = new Scale();
+		xScale = new ScaleX();
+		mainYScale = new ScaleY();
+		secondaryYScale = new ScaleY();
+		usingSecondaryScale = false;
 		this.addMouseListener(this);
 		this.addMouseMotionListener(this);
 		this.addComponentListener(this);
@@ -133,7 +141,11 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	 */
 	public void reset() {
 		data = new Vector<Series>();
-		scale.reset();
+		xScale.reset();
+		mainYScale.reset();
+		secondaryYScale.reset();
+		usingSecondaryScale = false;
+		mainYLabel = secondaryYLabel = "";
 		setXSeriesName(null);
 	}
 	
@@ -146,6 +158,14 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 		this.maxYValue = maxY;
 	}
 	
+	public void setMainYLabel(String mainYLabel) {
+		this.mainYLabel = mainYLabel;
+	}
+	
+	public void setSecondaryYLabel(String secondaryYLabel) {
+		this.secondaryYLabel = secondaryYLabel;
+	}
+	
 	/*
 	 * Add a new Series with title of the kind Series 0, Series 1, ...
 	 */
@@ -154,13 +174,21 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	}
 	
 	/*
-	 * Add a new series with given title
+	 * Add a new series with given title (defaults to the main scale)
 	 */
 	private void addSeries(P[] series, String name) {
+		addSeries(series, name, mainYScale);
+	}
+	
+	private void addSecondarySeries(P[] series, String name) {
+		addSeries(series, name, secondaryYScale);
+	}
+	
+	private void addSeries(P[] series, String name, ScaleY yScale) {
 		if (name == null) {
 			addSeries(series);
 		} else {
-			data.add(new Series(series, scale, name));
+			data.add(new Series(series, xScale, yScale, name));
 		}
 	}
 	
@@ -331,18 +359,32 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	public void drawAxes(Graphics2D g, Rectangle bounds) {
 		FontMetrics fm = g.getFontMetrics();
 		g.setPaint(FOREGROUND_COLOR);
-		g.drawLine(bounds.x - 10 * SCALA, bounds.height + bounds.y, bounds.x + bounds.width + 10 * SCALA, bounds.height + bounds.y);
-		g.drawLine(bounds.x, bounds.height + bounds.y + 10 * SCALA, bounds.x, bounds.y - 10 * SCALA);
-		g.drawLine(bounds.x + bounds.width + 10 * SCALA, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height - 5 * SCALA);
-		g.drawLine(bounds.x + bounds.width + 10 * SCALA, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height + 5 * SCALA);
-		g.drawLine(bounds.x, bounds.y - 10 * SCALA, bounds.x - 5 * SCALA, bounds.y);
-		g.drawLine(bounds.x, bounds.y - 10 * SCALA, bounds.x + 5 * SCALA, bounds.y);
+		int leftBorder = fm.stringWidth("" + (int)mainYScale.getMaxY());
+		if (mainYLabel != null) {
+			leftBorder = Math.max(leftBorder, fm.stringWidth(mainYLabel));
+		}
+		int rightBorder = 0;
+		if (usingSecondaryScale) {
+			rightBorder = fm.stringWidth("" + (int)secondaryYScale.getMaxY());
+			if (secondaryYLabel != null) {
+				rightBorder = Math.max(rightBorder, fm.stringWidth(secondaryYLabel));
+			}
+		}
+		g.drawLine(bounds.x + leftBorder, bounds.height + bounds.y, bounds.x + bounds.width - rightBorder, bounds.height + bounds.y);
+		g.drawLine(bounds.x + leftBorder, bounds.height + bounds.y, bounds.x + leftBorder, bounds.y - 10 * SCALA);
+		if (usingSecondaryScale) {
+			g.drawLine(bounds.x + bounds.width - rightBorder, bounds.height + bounds.y, bounds.x + bounds.width - rightBorder, bounds.y - 10 * SCALA);
+		}
+	//	g.drawLine(bounds.x + bounds.width + 10 * SCALA, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height - 5 * SCALA);
+	//	g.drawLine(bounds.x + bounds.width + 10 * SCALA, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height + 5 * SCALA);
+	//	g.drawLine(bounds.x, bounds.y - 10 * SCALA, bounds.x - 5 * SCALA, bounds.y);
+	//	g.drawLine(bounds.x, bounds.y - 10 * SCALA, bounds.x + 5 * SCALA, bounds.y);
 		
-		int xTick = bounds.x,
+		int xTick = bounds.x + leftBorder,
 		yTick = bounds.y + bounds.height;
-		double minX = scale.getMinX(),
-			   maxX = scale.getMaxX(),
-			   scaleX = scale.getXScale();
+		double minX = xScale.getMinX(),
+			   maxX = xScale.getMaxX(),
+			   scaleX = xScale.getXScale();
 		int interval = (int)(maxX - minX + 1);
 		int increase = 1;
 		//awful heuristic in order to get some ticks 
@@ -359,12 +401,12 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 		//if ((maxX - minX + 1) / increase > 20) { //questa invece si limitava a vedere se venivano troppe (in assoluto) tick: ma non sappiamo quanto è largo il grafico!
 			increase = increase * 2;
 		}
-		int xStartString = bounds.x + bounds.width;
+		int xStartString = bounds.x + bounds.width - rightBorder;
 		if (xSeriesName != null) {
 			xStartString -= fm.stringWidth(xSeriesName) - 5 * SCALA;
 		}
 		for (int i=increase; i<maxX && (xTick + increase * scaleX + fm.stringWidth(new Integer(i).toString())) < xStartString; i+=increase) {
-			xTick = (int) (bounds.x + scaleX * (i - minX));
+			xTick = (int) (bounds.x + leftBorder + scaleX * (i - minX));
 			if (xTick < bounds.x) continue;
 			if (xTick > bounds.x + bounds.width) break;
 			g.drawLine(xTick, yTick - 5 * SCALA, xTick, yTick + 5 * SCALA);
@@ -372,11 +414,11 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 			g.drawString(label, xTick - fm.stringWidth(label)/2, yTick + 3 * SCALA + fm.getHeight());
 		}
 		
-		xTick = bounds.x;
+		xTick = bounds.x + leftBorder;
 		yTick = bounds.y + bounds.height;
-		double minY = scale.getMinY(),
-			   maxY = scale.getMaxY(),
-			   scaleY = scale.getYScale();
+		double minY = mainYScale.getMinY(),
+			   maxY = mainYScale.getMaxY(),
+			   scaleY = mainYScale.getYScale();
 		interval = (int)(maxY - minY + 1);
 		increase = 1;
 		while (interval > 0) {
@@ -399,10 +441,48 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 			g.drawString(label, xTick - fm.stringWidth(label) - 5 * SCALA, yTick - 3 * SCALA + fm.getHeight()/2);
 		}
 		
+		if (usingSecondaryScale) {
+			xTick = bounds.x + bounds.width - rightBorder;
+			yTick = bounds.y + bounds.height;
+			minY = secondaryYScale.getMinY();
+			maxY = secondaryYScale.getMaxY();
+			scaleY = secondaryYScale.getYScale();
+			interval = (int)(maxY - minY + 1);
+			increase = 1;
+			while (interval > 0) {
+				interval = interval / 10;
+				increase = increase * 10;
+			}
+			while ((maxY - minY + 1) / increase < 8) {
+				increase = increase / 10;
+			}
+			if (increase < 1) increase = 1;
+			while (increase * scaleY < fm.getHeight()) {
+				increase = increase * 2;
+			}
+			for (int i=increase; i < maxY; i+=increase) {
+				yTick = (int)(bounds.y + bounds.height - scaleY * (i - minY));
+				if (yTick > bounds.y + bounds.height) continue;
+				if (yTick < bounds.y) break;
+				g.drawLine(xTick - 5 * SCALA, yTick, xTick + 5 * SCALA, yTick);
+				String label = new Integer(i).toString();
+				g.drawString(label, xTick + 6 * SCALA, yTick - 3 * SCALA + fm.getHeight()/2);
+			}
+		}
+		
 		if (xSeriesName != null) {
 			g.drawString(xSeriesName, xStartString, bounds.y + bounds.height + 3 * SCALA + fm.getHeight());
 		}
 		
+		if (mainYLabel != null) {
+			String label = mainYLabel;
+			g.drawString(label, bounds.x + leftBorder - fm.stringWidth(label) - 6 * SCALA, bounds.y - 5 * SCALA + fm.getHeight()/2);
+		}
+		
+		if (usingSecondaryScale && secondaryYLabel != null) {
+			String label = secondaryYLabel;
+			g.drawString(label, bounds.x + bounds.width - rightBorder + 6 * SCALA, bounds.y - 5 * SCALA + fm.getHeight()/2);
+		}
 		
 	}
 	
@@ -469,6 +549,18 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 		FontMetrics fm = g.getFontMetrics();
 		maxLabelLength = 0;
 		bounds.setBounds(bounds.x + BORDER_X * SCALA, bounds.y + BORDER_Y * SCALA, bounds.width - 2 * BORDER_X * SCALA, bounds.height - 2 * BORDER_Y * SCALA);
+		int leftBorder = fm.stringWidth("" + (int)mainYScale.getMaxY());
+		if (mainYLabel != null) {
+			leftBorder = Math.max(leftBorder, fm.stringWidth(mainYLabel));
+		}
+		int rightBorder = 0;
+		if (usingSecondaryScale) {
+			rightBorder = fm.stringWidth("" + (int)secondaryYScale.getMaxY());
+			if (secondaryYLabel != null) {
+				rightBorder = Math.max(rightBorder, fm.stringWidth(secondaryYLabel));
+			}
+		}
+		bounds.setBounds(bounds.x + leftBorder, bounds.y, bounds.width - (leftBorder + rightBorder), bounds.height);
 		
 		resetCol();
 		Stroke oldStroke = gBackground.getStroke();
@@ -504,7 +596,9 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 		gBackground.setStroke(fineStroke);
 		
 		if (needRedraw) {
+			bounds.setBounds(bounds.x - leftBorder, bounds.y, bounds.width + (leftBorder + rightBorder), bounds.height);
 			drawAxes(gBackground, bounds);
+			bounds.setBounds(bounds.x + leftBorder, bounds.y, bounds.width - (leftBorder + rightBorder), bounds.height);
 		}
 		
 		if (needRedraw) {
@@ -532,6 +626,7 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 
 		g.setStroke(oldStroke);
 		g.setFont(oldFont);
+		
 	}
 	
 	/*public void paint(Graphics g1) {
@@ -605,13 +700,27 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	 * Add a new set of Series from a given LevelResult, marking all as shown
 	 */
 	public void parseLevelResult(LevelResult result, Map<String, String> seriesNameMapping, double xScale) {
-		parseLevelResult(result, seriesNameMapping, xScale, null);
+		parseLevelResult(result, seriesNameMapping, xScale, null, false);
+		System.err.print("Ecco le serie ora presenti:");
+		for (Series s : data) System.err.print(" " + s.getName());
+		System.err.println();
 	}
+	
+	public void parseLevelResult(LevelResult result, Map<String, String> seriesNameMapping, double xScale, boolean useSecondaryAxis) {
+		parseLevelResult(result, seriesNameMapping, xScale, null, useSecondaryAxis);
+		System.err.print("Ecco le serie ora presenti:");
+		for (Series s : data) System.err.print(" " + s.getName());
+		System.err.println();
+	}
+	
+	public void parseLevelResult(LevelResult result, Map<String, String> seriesNameMapping, double xScale, Vector<String> selectedColumns) {
+		parseLevelResult(result, seriesNameMapping, xScale, selectedColumns, false);
+	} 
 	
 	/*
 	 * Add a new set of Series from a given LevelResult, marking the given ones as shown
 	 */
-	public void parseLevelResult(LevelResult result, Map<String, String> seriesNameMapping, double xScale, Vector<String> selectedColumns) {
+	public void parseLevelResult(LevelResult result, Map<String, String> seriesNameMapping, double xScale, Vector<String> selectedColumns, boolean useSecondaryAxis) {
 		boolean mustRescaleYValues = false; //if we find a column whose name is equal to my constant MAX_Y_STRING, two things can happen:
 											//1. maxYValue == null, then we update its value with the (only) value present in this special column
 											//2. maxYValue != null, then we rescale the y values of all the series we find in this csv file to the value of maxYValue,
@@ -619,6 +728,9 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 											//The mustRescaleYValues is used to signal the fact that we are in the second case
 		if (selectedColumns != null) {
 			this.selectedColumns.addAll(selectedColumns);
+		}
+		if (useSecondaryAxis) {
+			usingSecondaryScale = true;
 		}
 		String[] graphNames = result.getReactantIds().toArray(new String[] {""});
 		int nColonne = graphNames.length;
@@ -648,7 +760,11 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 				P[] grafico = new P[1];
 				grafico = grafici.elementAt(i).toArray(grafico);
 				if (grafico != null && grafico.length > 1) {
-					addSeries(grafico, graphNames[i]);
+					if (useSecondaryAxis) {
+						addSecondarySeries(grafico, graphNames[i]);
+					} else {
+						addSeries(grafico, graphNames[i]);
+					}
 				} else if (graphNames[i].equals(MAX_Y_STRING)) {
 					//the y value is the value under this column, the x value is ALWAYS FOR EVERY GRAPH the value of the first column on the same line
 					maxYValue = grafico[0].y;
@@ -672,12 +788,17 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 					for (P p : grafico) { //before adding the graph data, we update it by rescaling the y values
 						p.y *= scaleFactor;
 					}
-					addSeries(grafico, graphNames[i]);
+					if (useSecondaryAxis) {
+						addSecondarySeries(grafico, graphNames[i]);
+					} else {
+						addSeries(grafico, graphNames[i]);
+					}
 				}
 			}
 		}
 		
 		for (Series s : data) {
+			if (!result.getReactantIds().contains(s.getName())) continue;
 			if (s.getName().toLowerCase().trim().endsWith(Series.SLAVE_SUFFIX)) {
 				for (Series s2 : data) {
 					if (s2.getName().trim().equals(s.getName().trim().substring(0, s.getName().toLowerCase().trim().lastIndexOf(Series.SLAVE_SUFFIX)))) {
@@ -694,12 +815,14 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 		
 		//Set the names for all masters only
 		for (Series s : data) {
+			if (!result.getReactantIds().contains(s.getName())) continue;
 			if (!s.isSlave()) {
 				s.setName(seriesNameMapping.get(s.getName()));
 			}
 		}
 		//Set the names for the remaining slaves (we don't see them printed, but they are exported in csv)
 		for (Series s : data) {
+			if (!result.getReactantIds().contains(s.getName())) continue;
 			if (s.isSlave()) {
 				s.setName(s.getMaster().getName() + Series.SLAVE_SUFFIX);
 			}
@@ -712,13 +835,21 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	 * Add a new set of Series from a given CSV file, marking all as shown
 	 */
 	public void parseCSV(String fileName) throws FileNotFoundException, IOException {
-		parseCSV(fileName, null);
+		parseCSV(fileName, null, false);
+	}
+	
+	public void parseCSV(String filename, boolean useSecondaryAxis) throws FileNotFoundException, IOException {
+		parseCSV(filename, null, useSecondaryAxis);
+	}
+	
+	public void parseCSV(String fileName, Vector<String> selectedColumns) throws FileNotFoundException, IOException {
+		parseCSV(fileName, selectedColumns, false);
 	}
 	
 	/*
 	 * Add a new set of Series from a given CSV file, marking the given ones as shown
 	 */
-	public void parseCSV(String fileName, Vector<String> selectedColumns) throws FileNotFoundException, IOException {
+	public void parseCSV(String fileName, Vector<String> selectedColumns, boolean useSecondaryAxis) throws FileNotFoundException, IOException {
 		boolean mustRescaleYValues = false; //if we find a column whose name is equal to my constant MAX_Y_STRING, two things can happen:
 											//1. maxYValue == null, then we update its value with the (only) value present in this special column
 											//2. maxYValue != null, then we rescale the y values of all the series we find in this csv file to the value of maxYValue,
@@ -770,7 +901,11 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 				P[] grafico = new P[1];
 				grafico = grafici.elementAt(i).toArray(grafico);
 				if (grafico != null && grafico.length > 1) {
-					addSeries(grafico, graphNames[i]);
+					if (useSecondaryAxis) {
+						addSecondarySeries(grafico, graphNames[i]);
+					} else {
+						addSeries(grafico, graphNames[i]);
+					}
 				} else if (graphNames[i].equals(MAX_Y_STRING)) {
 					//the y value is the value under this column, the x value is ALWAYS FOR EVERY GRAPH the value of the first column on the same line
 					maxYValue = grafico[0].y;
@@ -794,7 +929,11 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 					for (P p : grafico) { //before adding the graph data, we update it by rescaling the y values
 						p.y *= scaleFactor;
 					}
-					addSeries(grafico, graphNames[i]);
+					if (useSecondaryAxis) {
+						addSecondarySeries(grafico, graphNames[i]);
+					} else {
+						addSeries(grafico, graphNames[i]);
+					}
 				}
 			}
 		}
@@ -876,18 +1015,20 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 	 * to be drawn.
 	 */
 	public void setDrawArea(int minX, int maxX, int minY, int maxY) {
-		scale.setMinX(new Double(minX));
-		scale.setMaxX(new Double(maxX));
-		scale.setMinY(new Double(minY));
-		scale.setMaxY(new Double(maxY));
+		xScale.setMinX(new Double(minX));
+		xScale.setMaxX(new Double(maxX));
+		mainYScale.setMinY(new Double(minY));
+		mainYScale.setMaxY(new Double(maxY));
+		secondaryYScale.adaptToScale(mainYScale);
 	}
 	
 	//Simply the string version of the one above. If the numbers in the strings are actually not numbers, I am sorry for the user.
 	public void setDrawArea(String minX, String maxX, String minY, String maxY) {
-		scale.setMinX(new Double(minX));
-		scale.setMaxX(new Double(maxX));
-		scale.setMinY(new Double(minY));
-		scale.setMaxY(new Double(maxY));
+		xScale.setMinX(new Double(minX));
+		xScale.setMaxX(new Double(maxX));
+		mainYScale.setMinY(new Double(minY));
+		mainYScale.setMaxY(new Double(maxY));
+		secondaryYScale.adaptToScale(mainYScale);
 	}
 
 	/*
@@ -1076,11 +1217,11 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 				minimumY = Math.min(zoomRectangleBounds.y, e.getY()),
 				maximumY = Math.max(zoomRectangleBounds.y, e.getY());
 			if (zoomExtentsBounds == null) {
-				zoomExtentsBounds = new Rectangle((int)scale.getMinX(), (int)scale.getMinY(), (int)scale.getMaxX(), (int)scale.getMaxY());
+				zoomExtentsBounds = new Rectangle((int)xScale.getMinX(), (int)mainYScale.getMinY(), (int)xScale.getMaxX(), (int)mainYScale.getMaxY());
 			} else {
 				//there is already the starting measure
 			}
-			this.setDrawArea((int)(((minimumX - 1 - BORDER_X * SCALA) / scale.getXScale() + scale.getMinX())), (int)((maximumX - 1 - BORDER_X * SCALA) / scale.getXScale() + scale.getMinX()), (int)((this.getBounds().height + 1 - maximumY - BORDER_Y * SCALA) / scale.getYScale() + scale.getMinY()), (int)((this.getBounds().height + 1 - minimumY - BORDER_Y * SCALA) / scale.getYScale() + scale.getMinY()));
+			this.setDrawArea((int)(((minimumX - 1 - BORDER_X * SCALA) / xScale.getXScale() + xScale.getMinX())), (int)((maximumX - 1 - BORDER_X * SCALA) / xScale.getXScale() + xScale.getMinX()), (int)((this.getBounds().height + 1 - maximumY - BORDER_Y * SCALA) / mainYScale.getYScale() + mainYScale.getMinY()), (int)((this.getBounds().height + 1 - minimumY - BORDER_Y * SCALA) / mainYScale.getYScale() + mainYScale.getMinY()));
 			zoomRectangleBounds = null;
 			drawingZoomRectangle = false;
 			this.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
@@ -1169,13 +1310,13 @@ public class Graph extends JPanel implements MouseListener, MouseMotionListener,
 				needRedraw = true;
 				this.repaint();
 			} else if (menu.getText().equals(INTERVAL_LABEL)) {
-				String valMinX = JOptionPane.showInputDialog(this, "Give the value of minimum X", scale.getMinX());
+				String valMinX = JOptionPane.showInputDialog(this, "Give the value of minimum X", xScale.getMinX());
 				if (valMinX == null) return;
-				String valMaxX = JOptionPane.showInputDialog(this, "Give the value of maximum X", scale.getMaxX());
+				String valMaxX = JOptionPane.showInputDialog(this, "Give the value of maximum X", xScale.getMaxX());
 				if (valMaxX == null) return;
-				String valMinY = JOptionPane.showInputDialog(this, "Give the value of minimum Y", scale.getMinY());
+				String valMinY = JOptionPane.showInputDialog(this, "Give the value of minimum Y", mainYScale.getMinY());
 				if (valMinY == null) return;
-				String valMaxY = JOptionPane.showInputDialog(this, "Give the value of maximum Y", scale.getMaxY());
+				String valMaxY = JOptionPane.showInputDialog(this, "Give the value of maximum Y", mainYScale.getMaxY());
 				if (valMaxY == null) return;
 				this.setDrawArea(valMinX, valMaxX, valMinY, valMaxY);
 				/*scale.setMinX(new Double(valMinX));

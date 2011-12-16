@@ -88,6 +88,9 @@ public class RunAction extends CytoscapeAction {
 								CANONICAL_NAME = Model.Properties.CANONICAL_NAME, //The name of a reactant displayed to the user
 								INITIAL_QUANTITY = Model.Properties.INITIAL_QUANTITY, //The initial quantity (concentration) of a node (=reactant)
 								INITIAL_LEVEL = Model.Properties.INITIAL_LEVEL, //The starting activity level of a reactant
+								CONCENTRATION = Model.Properties.CONCENTRATION, //This represents the actual value in mM of the initial concentration, while INITIAL_QUANTITY is its discrete representation
+								STEP_SIZE = Model.Properties.STEP_SIZE, //This is how the CONCENTRATION is discretized into INITIAL_QUANTITY: INITIAL_QUANTITY = CONCENTRATION / STEP_SIZE
+								PERCENTUAL_ACTIVITY = Model.Properties.PERCENTUAL_ACTIVITY, //The initial activity, expressed as %
 								UNCERTAINTY = Model.Properties.UNCERTAINTY, //The uncertainty about the parameters setting for an edge(=reaction)
 								ENABLED = Model.Properties.ENABLED, //Whether the node/edge is enabled. Influences the display of that node/edge thanks to the discrete Visual Mapping defined by AugmentAction
 								PLOTTED = Model.Properties.PLOTTED, //Whether the node is plotted in the graph. Default: yes
@@ -506,6 +509,9 @@ public class RunAction extends CytoscapeAction {
 				r.let(PLOTTED).be(nodeAttributes.getAttribute(node.getIdentifier(), PLOTTED));
 				r.let(INITIAL_QUANTITY).be(nodeAttributes.getIntegerAttribute(node.getIdentifier(), INITIAL_QUANTITY));
 				r.let(INITIAL_LEVEL).be(nodeAttributes.getIntegerAttribute(node.getIdentifier(), INITIAL_LEVEL));
+				r.let(CONCENTRATION).be(nodeAttributes.getDoubleAttribute(node.getIdentifier(), CONCENTRATION));
+				r.let(STEP_SIZE).be(nodeAttributes.getDoubleAttribute(node.getIdentifier(), STEP_SIZE));
+				r.let(PERCENTUAL_ACTIVITY).be(nodeAttributes.getIntegerAttribute(node.getIdentifier(), PERCENTUAL_ACTIVITY));
 				
 				//If the quantity of this reactant is not influenced by any reaction, the maximum growth factor for its quantity is 1, otherwise it is 10 (i.e., the quantity can grow up to 10 times its initial value).
 				Iterator<Edge> edges = (Iterator<Edge>) network.edgesIterator();
@@ -1018,21 +1024,65 @@ public class RunAction extends CytoscapeAction {
 					}
 				}
 				
+				int levels;
 				if (!nodeAttributes.hasAttribute(node.getIdentifier(), NUMBER_OF_LEVELS)) {
-					nodeAttributes.setAttribute(node.getIdentifier(), NUMBER_OF_LEVELS, networkAttributes.getIntegerAttribute(network.getIdentifier(), NUMBER_OF_LEVELS));
+					levels = networkAttributes.getIntegerAttribute(network.getIdentifier(), NUMBER_OF_LEVELS);
+					nodeAttributes.setAttribute(node.getIdentifier(), NUMBER_OF_LEVELS, levels);
+				} else {
+					levels = nodeAttributes.getIntegerAttribute(node.getIdentifier(), NUMBER_OF_LEVELS);
 				}
 				
+				int quantity;
 				if (!nodeAttributes.hasAttribute(node.getIdentifier(), INITIAL_QUANTITY)) {
-					nodeAttributes.setAttribute(node.getIdentifier(), INITIAL_QUANTITY, nodeAttributes.getIntegerAttribute(node.getIdentifier(), NUMBER_OF_LEVELS));
+					quantity = nodeAttributes.getIntegerAttribute(node.getIdentifier(), NUMBER_OF_LEVELS);
+					nodeAttributes.setAttribute(node.getIdentifier(), INITIAL_QUANTITY, quantity);
+				} else {
+					quantity = nodeAttributes.getIntegerAttribute(node.getIdentifier(), INITIAL_QUANTITY);
 				}
 				
+				int activity;
 				if (!nodeAttributes.hasAttribute(node.getIdentifier(), INITIAL_LEVEL)) {
 					//throw new ANIMOException("Node attribute 'initialConcentration' is missing on '" + node.getIdentifier() + "'");
+					activity = 0;
 					nodeAttributes.setAttribute(node.getIdentifier(), INITIAL_LEVEL, 0);
+				} else {
+					activity = nodeAttributes.getIntegerAttribute(node.getIdentifier(), INITIAL_LEVEL);
 				}
 				
 				if (!nodeAttributes.hasAttribute(node.getIdentifier(), LEVELS_SCALE_FACTOR)) {
 					nodeAttributes.setAttribute(node.getIdentifier(), LEVELS_SCALE_FACTOR, 1.0);
+				}
+				
+				double concentration;
+				if (!nodeAttributes.hasAttribute(node.getIdentifier(), CONCENTRATION)) {
+					if (quantity > 0) {
+						concentration = 100.0 / levels * quantity;
+					} else {
+						concentration = 0;
+					}
+					nodeAttributes.setAttribute(node.getIdentifier(), CONCENTRATION, concentration);
+				} else {
+					concentration = nodeAttributes.getDoubleAttribute(node.getIdentifier(), CONCENTRATION);
+				}
+				
+				if (!nodeAttributes.hasAttribute(node.getIdentifier(), STEP_SIZE)) {
+					double stepSize;
+					if (concentration > 0) {
+						stepSize = concentration / 10;
+					} else {
+						stepSize = nodeAttributes.getIntegerAttribute(node.getIdentifier(), NUMBER_OF_LEVELS) / 10.0;
+					}
+					nodeAttributes.setAttribute(node.getIdentifier(), STEP_SIZE, stepSize);
+				}
+				
+				if (!nodeAttributes.hasAttribute(node.getIdentifier(), PERCENTUAL_ACTIVITY)) {
+					int percActivity;
+					if (quantity > 0) {
+						percActivity = (int)Math.round(activity * 100.0 / quantity);
+					} else {
+						percActivity = 0;
+					}
+					nodeAttributes.setAttribute(node.getIdentifier(), PERCENTUAL_ACTIVITY, percActivity);
 				}
 			}
 			

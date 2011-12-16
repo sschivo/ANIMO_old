@@ -898,7 +898,29 @@ public class EdgeDialog extends JDialog {
 				if (selectedIdx != -1) {
 					reactantsList.setSelectedIndex(selectedIdx);
 				} else {
-					linkedVariable.setReactantIdentifier(reactantIdentifiers[0]); //linkedVariable is actually the real influencedReactant that we want to change
+					int selectedIndex = -1;
+					if (input) { //The default is the upstream reactant for the input, and the downstream reactant for the output
+						for (int i=0;i<reactantIdentifiers.length;i++) {
+							if (reactantIdentifiers[i].equals(edge.getSource().getIdentifier())) {
+								selectedIndex = i;
+								break;
+							}
+						}
+					} else {
+						for (int i=0;i<reactantIdentifiers.length;i++) {
+							if (reactantIdentifiers[i].equals(edge.getTarget().getIdentifier())) {
+								selectedIndex = i;
+								break;
+							}
+						}
+					}
+					if (selectedIndex != -1) {
+						linkedVariable.setReactantIdentifier(reactantIdentifiers[selectedIndex]); //linkedVariable is actually the real influencedReactant that we want to change
+						reactantsList.setSelectedIndex(selectedIndex);
+					} else {
+						linkedVariable.setReactantIdentifier(reactantIdentifiers[0]);
+						reactantsList.setSelectedIndex(0);
+					}
 				}
 			}
 			reactantsList.addActionListener(new ActionListener() {
