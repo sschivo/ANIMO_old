@@ -203,7 +203,7 @@ public class Scenario {
 			
 			@Override
 			public JLabel getFormulaLabel() {
-				return new JLabel(SCENARIO_PARAMETER_K2_KM + " * E * (" + SCENARIO_PARAMETER_STOT + " - S)");
+				return new JLabel(SCENARIO_PARAMETER_K2_KM + " * E * S");
 			}
 			
 			@Override
@@ -252,7 +252,7 @@ public class Scenario {
 			
 			@Override
 			public JLabel getFormulaLabel() {
-				return new JLabel(SCENARIO_PARAMETER_K2 + " * E * (" + SCENARIO_PARAMETER_STOT + " - S) / (" + SCENARIO_PARAMETER_KM + " + " + SCENARIO_PARAMETER_STOT + " - S)");
+				return new JLabel(SCENARIO_PARAMETER_K2 + " * E * S / (" + SCENARIO_PARAMETER_KM + " + S)");
 			}
 			
 			@Override

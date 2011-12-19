@@ -176,7 +176,7 @@ public class ANIMOResultPanel extends JPanel implements ChangeListener {
 				maxY = Math.max(maxY, firstBlock.getMaximumValue());
 			}
 			if (!secondBlock.isEmpty()) {
-				maxY = Math.max(maxY, secondBlock.getMaximumValue());
+				maxY = Math.max(maxY, 100/*secondBlock.getMaximumValue()*/); //We may like more to represent % always on a 0-100 scale by default?
 			}
 			//int nLevels = model.getProperties().get(Model.Properties.NUMBER_OF_LEVELS).as(Integer.class);
 			g.declareMaxYValue(maxY);
