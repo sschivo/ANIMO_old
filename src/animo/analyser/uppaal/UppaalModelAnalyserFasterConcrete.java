@@ -753,13 +753,13 @@ public class UppaalModelAnalyserFasterConcrete implements ModelAnalyser<LevelRes
 							//System.err.print(", " + reactantId + " = " + level);
 							
 							SortedMap<Double, Double> rMap = levels.get(reactantId);
-							//if (rMap.get(rMap.lastKey()) != level) { //if we didn't register a variation, we don't plot a point
+							if (rMap.get(rMap.lastKey()) != level) { //if we didn't register a variation, we don't plot a point
 								/*if (rMap.lastKey() < time - 1) { //We use this piece to explicitly keep a level constant when it is not varying (i.e., the graph will never contain non-vertical,non-horizontal lines)
 									rMap.put((double)(time - 1), rMap.get(rMap.lastKey()));
 								}*/
 								
 								rMap.put((double)time, level);
-							//}
+							}
 						}
 						//System.err.println();
 						oldLine = line;

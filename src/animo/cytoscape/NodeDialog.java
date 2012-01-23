@@ -18,6 +18,7 @@ import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.InputVerifier;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
@@ -114,14 +115,12 @@ public class NodeDialog extends JDialog {
 		double stepSize;
 		if (nodeAttributes.hasAttribute(node.getIdentifier(), Model.Properties.STEP_SIZE)) {
 			stepSize = nodeAttributes.getDoubleAttribute(node.getIdentifier(), Model.Properties.STEP_SIZE);
-			System.err.println("Trovato stepSize = " + stepSize);
 		} else {
 			if (concentration > 0) {
-				stepSize = concentration / 10;
+				stepSize = concentration / levels;
 			} else {
 				stepSize = levels / 10.0;
 			}
-			System.err.println("stepSize non c'era, ho dovuto calcolarlo = " + stepSize);
 		}
 		
 		int percActivity;
@@ -134,6 +133,14 @@ public class NodeDialog extends JDialog {
 				percActivity = 0;
 			}
 		}
+		
+//		System.err.println("Per il mio caro nodo \"" + name + "\" ho questi valori:");
+//		System.err.println("levels = " + levels);
+//		System.err.println("quantity = " + quantity);
+//		System.err.println("activity = " + activity);
+//		System.err.println("concentration = " + concentration);
+//		System.err.println("stepSize = " + stepSize);
+//		System.err.println("percActivity = " + percActivity);
 		
 		//JLabel nameLabel = new JLabel("Reactant name:");
 		final JTextField nameField = new JTextField(name);
@@ -172,6 +179,12 @@ public class NodeDialog extends JDialog {
 			}
 		});
 		values.add(new LabelledField("Discrete step (mM)", granularityStep), new GridBagConstraints(1, 1, 1, 1, 0.5, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 2, 2));
+		final JCheckBox notGrowing = new JCheckBox("Does not grow");
+		notGrowing.setSelected(false);
+		if (nodeAttributes.hasAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING)) {
+			notGrowing.setSelected(nodeAttributes.getBooleanAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING));
+		}
+		values.add(notGrowing, new GridBagConstraints(1, 3, 1, 1, 0.5, 0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 2, 2));
 		final JSlider initialActivity = new JSlider(0, 100);
 		initialActivity.setValue(percActivity);
 		initialActivity.setMajorTickSpacing(20);
@@ -380,6 +393,7 @@ public class NodeDialog extends JDialog {
 				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.NUMBER_OF_LEVELS, numberOfLev);
 				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.INITIAL_QUANTITY, initialQty);
 				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.INITIAL_LEVEL, initialAct);
+				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING, notGrowing.isSelected());
 				
 				double activityRatio = initialActPerc / 100.0;
 				/*double activityRatio = (double)initialAct / initialQty;*/

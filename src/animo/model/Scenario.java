@@ -27,7 +27,7 @@ public class Scenario {
 	protected HashMap<String, ReactantParameter> linkedVariables = new HashMap<String, ReactantParameter>(); //Variable name -> <reactant, property> to which the variable will be linked
 	public static final int INFINITE_TIME = -1; //The constant to mean that the reaction will not happen
 	
-	private static Scenario[] defaultScenarios = new Scenario[3]; //The default predefined scenarios
+	private static Scenario[] defaultScenarios = new Scenario[2]; //The default predefined scenarios
 	public static Scenario[] availableScenarios = defaultScenarios; 
 	
 	public Scenario() {
@@ -168,6 +168,15 @@ public class Scenario {
 		//defaultScenarios[0].setParameter(SCENARIO_ONLY_PARAMETER, 0.01);
 		defaultScenarios[0].setDefaultParameterValue(SCENARIO_ONLY_PARAMETER, 0.01);
 		
+		String name = "Scenario 1",
+			   formula = "k * E";
+		FormulaVariable fvk = new FormulaVariable("k", true, null, 1.0),
+						fvE = new FormulaVariable("E", false, new ReactantParameter(null, Model.Properties.ACTIVITY_LEVEL), 1.0);
+		Vector<FormulaVariable> vars = new Vector<FormulaVariable>();
+		vars.add(fvk);
+		vars.add(fvE);
+		defaultScenarios[0] = new UserFormula(name, formula, vars);
+		
 		defaultScenarios[1] = new Scenario() {
 			@Override
 			public double computeRate(int r1Level, int nLevelsR1, int r2Level, int nLevelsR2, boolean activatingReaction) {
@@ -216,56 +225,67 @@ public class Scenario {
 		defaultScenarios[1].setDefaultParameterValue(SCENARIO_PARAMETER_K2_KM, 0.001);
 		defaultScenarios[1].setDefaultParameterValue(SCENARIO_PARAMETER_STOT, 15.0);
 		
-		defaultScenarios[2] = new Scenario() {
-			@Override
-			public double computeRate(int r1Level, int nLevelsR1, int r2Level, int nLevelsR2, boolean activatingReaction) {
-				double k2 = parameters.get(SCENARIO_PARAMETER_K2),
-					   E = (double)r1Level,
-					   //Stot = parameters.get(SCENARIO_PARAMETER_STOT), TODO: THIS IS STRANGE. Where do we put Stot in the formula???
-					   S,
-					   km = parameters.get(SCENARIO_PARAMETER_KM);
-				/*r2Level = (int)Math.round(r2Level * Stot / nLevelsR2);
-				if (activatingReaction) {
-					S = Stot - r2Level;
-				} else {
-					//S = Stot - r2Level;
-					S = r2Level;
-				}*/
-				//if (!activatingReaction) {
-					S = r2Level;
-				//} else {
-				//	S = nLevelsR2 - r2Level;
-				//}
-				double rate = k2 * E * S / (km + S);
-				return rate;
-			}
-			
-			@Override
-			public String[] listVariableParameters() {
-				return new String[]{SCENARIO_PARAMETER_K2, SCENARIO_PARAMETER_KM, SCENARIO_PARAMETER_STOT};
-			}
-			
-			@Override
-			public String[] listLinkedVariables() {
-				return new String[]{};
-			}
-			
-			@Override
-			public JLabel getFormulaLabel() {
-				return new JLabel(SCENARIO_PARAMETER_K2 + " * E * S / (" + SCENARIO_PARAMETER_KM + " + S)");
-			}
-			
-			@Override
-			public String toString() {
-				return "Scenario 6";
-			}
-		};
-		//defaultScenarios[2].setParameter(SCENARIO_PARAMETER_K2, 0.01);
-		//defaultScenarios[2].setParameter(SCENARIO_PARAMETER_KM, 10.0);
-		//defaultScenarios[2].setParameter(SCENARIO_PARAMETER_STOT, 15.0);
-		defaultScenarios[2].setDefaultParameterValue(SCENARIO_PARAMETER_K2, 0.01);
-		defaultScenarios[2].setDefaultParameterValue(SCENARIO_PARAMETER_KM, 10.0);
-		defaultScenarios[2].setDefaultParameterValue(SCENARIO_PARAMETER_STOT, 15.0);
+		name = "Scenario 2";
+		formula = "k * E * S";
+		fvk = new FormulaVariable("k", true, null, 1.0);
+		fvE = new FormulaVariable("E", false, new ReactantParameter(null, Model.Properties.ACTIVITY_LEVEL), 1.0);
+		FormulaVariable fvS = new FormulaVariable("S", false, new ReactantParameter(null, Model.Properties.INACTIVITY_LEVEL), 1.0);
+		vars = new Vector<FormulaVariable>();
+		vars.add(fvk);
+		vars.add(fvE);
+		vars.add(fvS);
+		defaultScenarios[1] = new UserFormula(name, formula, vars);
+		
+//		defaultScenarios[2] = new Scenario() {
+//			@Override
+//			public double computeRate(int r1Level, int nLevelsR1, int r2Level, int nLevelsR2, boolean activatingReaction) {
+//				double k2 = parameters.get(SCENARIO_PARAMETER_K2),
+//					   E = (double)r1Level,
+//					   //Stot = parameters.get(SCENARIO_PARAMETER_STOT), TODO: THIS IS STRANGE. Where do we put Stot in the formula???
+//					   S,
+//					   km = parameters.get(SCENARIO_PARAMETER_KM);
+//				/*r2Level = (int)Math.round(r2Level * Stot / nLevelsR2);
+//				if (activatingReaction) {
+//					S = Stot - r2Level;
+//				} else {
+//					//S = Stot - r2Level;
+//					S = r2Level;
+//				}*/
+//				//if (!activatingReaction) {
+//					S = r2Level;
+//				//} else {
+//				//	S = nLevelsR2 - r2Level;
+//				//}
+//				double rate = k2 * E * S / (km + S);
+//				return rate;
+//			}
+//			
+//			@Override
+//			public String[] listVariableParameters() {
+//				return new String[]{SCENARIO_PARAMETER_K2, SCENARIO_PARAMETER_KM, SCENARIO_PARAMETER_STOT};
+//			}
+//			
+//			@Override
+//			public String[] listLinkedVariables() {
+//				return new String[]{};
+//			}
+//			
+//			@Override
+//			public JLabel getFormulaLabel() {
+//				return new JLabel(SCENARIO_PARAMETER_K2 + " * E * S / (" + SCENARIO_PARAMETER_KM + " + S)");
+//			}
+//			
+//			@Override
+//			public String toString() {
+//				return "Scenario 6";
+//			}
+//		};
+//		//defaultScenarios[2].setParameter(SCENARIO_PARAMETER_K2, 0.01);
+//		//defaultScenarios[2].setParameter(SCENARIO_PARAMETER_KM, 10.0);
+//		//defaultScenarios[2].setParameter(SCENARIO_PARAMETER_STOT, 15.0);
+//		defaultScenarios[2].setDefaultParameterValue(SCENARIO_PARAMETER_K2, 0.01);
+//		defaultScenarios[2].setDefaultParameterValue(SCENARIO_PARAMETER_KM, 10.0);
+//		defaultScenarios[2].setDefaultParameterValue(SCENARIO_PARAMETER_STOT, 15.0);
 	}
 	
 	

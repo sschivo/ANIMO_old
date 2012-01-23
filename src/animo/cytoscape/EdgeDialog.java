@@ -553,7 +553,7 @@ public class EdgeDialog extends JDialog {
 			format.setMinimumFractionDigits(8);
 			final JFormattedTextField param = new JFormattedTextField(format);
 			//if (currentlySelectedScenario != previouslySelectedScenario) {
-			if (previouslySelectedScenario == 0 && currentlySelectedScenario == 1) { //1234 -> 5
+			/*if (previouslySelectedScenario == 0 && currentlySelectedScenario == 1) { //1234 -> 5
 				if (parameters[i].equals(Model.Properties.SCENARIO_PARAMETER_STOT)) {
 					if (nodeAttrib.hasAttribute(edge.getTarget().getIdentifier(), Model.Properties.NUMBER_OF_LEVELS)) {
 						param.setValue(nodeAttrib.getIntegerAttribute(edge.getTarget().getIdentifier(), Model.Properties.NUMBER_OF_LEVELS));
@@ -639,7 +639,7 @@ public class EdgeDialog extends JDialog {
 				Double km = scenarios[previouslySelectedScenario].getParameter(Model.Properties.SCENARIO_PARAMETER_KM);
 				Double k2km = k2 / km;
 				param.setValue(Stot * k2km);
-			} else if (edgeAttrib.hasAttribute(edge.getIdentifier(), parameters[i])) { //Generic scenarios (possibly user-defined formulae) need to look for an already present parameter
+			} else*/ if (edgeAttrib.hasAttribute(edge.getIdentifier(), parameters[i])) { //Generic scenarios (possibly user-defined formulae) need to look for an already present parameter
 				Double value = edgeAttrib.getDoubleAttribute(edge.getIdentifier(), parameters[i]);
 				param.setValue(value);
 				scenarios[currentlySelectedScenario].setParameter(parameters[i], value);

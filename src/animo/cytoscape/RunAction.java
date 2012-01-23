@@ -30,6 +30,9 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
+import com.jhlabs.image.MaximumFilter;
+import com.sosnoski.util.GrowableBase;
+
 import animo.analyser.LevelResult;
 import animo.analyser.SMCResult;
 import animo.analyser.uppaal.ResultAverager;
@@ -94,7 +97,8 @@ public class RunAction extends CytoscapeAction {
 								UNCERTAINTY = Model.Properties.UNCERTAINTY, //The uncertainty about the parameters setting for an edge(=reaction)
 								ENABLED = Model.Properties.ENABLED, //Whether the node/edge is enabled. Influences the display of that node/edge thanks to the discrete Visual Mapping defined by AugmentAction
 								PLOTTED = Model.Properties.PLOTTED, //Whether the node is plotted in the graph. Default: yes
-								GROUP = Model.Properties.GROUP; //Could possibly be never used. All nodes(=reactants) belonging to the same group represent alternative (in the sense of exclusive or) phosphorylation sites of the same protein.
+								GROUP = Model.Properties.GROUP, //Could possibly be never used. All nodes(=reactants) belonging to the same group represent alternative (in the sense of exclusive or) phosphorylation sites of the same protein.
+								INFLUENCING_NO_REACTION = "Influencing no reaction"; //boolean to tell us whether a reactant influences no reaction (so it can grow as much as it wants: we don't care
 	private static final int VERY_LARGE_TIME_VALUE = 1073741822;
 	private int timeTo = 1200; //The default number of UPPAAL time units until which a simulation will run
 	private double scale = 0.2; //The time scale representing the number of real-life minutes represented by a single UPPAAL time unit
@@ -512,6 +516,8 @@ public class RunAction extends CytoscapeAction {
 				r.let(CONCENTRATION).be(nodeAttributes.getDoubleAttribute(node.getIdentifier(), CONCENTRATION));
 				r.let(STEP_SIZE).be(nodeAttributes.getDoubleAttribute(node.getIdentifier(), STEP_SIZE));
 				r.let(PERCENTUAL_ACTIVITY).be(nodeAttributes.getIntegerAttribute(node.getIdentifier(), PERCENTUAL_ACTIVITY));
+				r.let(Model.Properties.NOT_GROWING).be(nodeAttributes.getBooleanAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING));
+				r.let(INFLUENCING_NO_REACTION).be(true);
 				
 				//If the quantity of this reactant is not influenced by any reaction, the maximum growth factor for its quantity is 1, otherwise it is 10 (i.e., the quantity can grow up to 10 times its initial value).
 				Iterator<Edge> edges = (Iterator<Edge>) network.edgesIterator();
@@ -535,6 +541,11 @@ public class RunAction extends CytoscapeAction {
 				if (factor == 0) {
 					factor = 1;
 				}
+				
+				if (nodeAttributes.getBooleanAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING)) {
+					factor = 1;
+				}
+				
 				nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.MAXIMUM_QUANTITY_GROWTH, factor);
 				r.let(Model.Properties.MAXIMUM_QUANTITY_GROWTH).be(factor);
 				
@@ -794,6 +805,20 @@ public class RunAction extends CytoscapeAction {
 				model.add(r);
 			}
 			
+			/*look for reactants which influence no reaction and set their growth factor to something large*/
+			for (Reaction r : model.getReactions()) {
+				List<ReactantParameter> influencingParameters = r.get(INFLUENCING_REACTANTS).as(List.class);
+				for (ReactantParameter p : influencingParameters) {
+					System.err.println("r id = " + p.getReactantIdentifier() + " --> " + nodeNameToId.get(p.getReactantIdentifier()));
+					model.getReactant(nodeNameToId.get(p.getReactantIdentifier())).let(INFLUENCING_NO_REACTION).be(false);
+				}
+			}
+			for (Reactant r : model.getReactants()) {
+				if (r.get(INFLUENCING_NO_REACTION).as(Boolean.class)) {
+					r.let(Model.Properties.MAXIMUM_QUANTITY_GROWTH).be(1000);
+				}
+			}
+			
 			/*This should not be necessary any more, as we do that in checkParameters()
 			//check that the number of levels is present in each reactant
 			Integer defNumberOfLevels = model.getProperties().get(NUMBER_OF_LEVELS).as(Integer.class);
@@ -1009,6 +1034,14 @@ public class RunAction extends CytoscapeAction {
 					enabled = true;
 				} else {
 					enabled = nodeAttributes.getBooleanAttribute(node.getIdentifier(), ENABLED);
+				}
+				
+				boolean notGrowing;
+				if (!nodeAttributes.hasAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING)) {
+					nodeAttributes.setAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING, false);
+					notGrowing = false;
+				} else {
+					notGrowing = nodeAttributes.getBooleanAttribute(node.getIdentifier(), Model.Properties.NOT_GROWING);
 				}
 				
 				if (!nodeAttributes.hasAttribute(node.getIdentifier(), PLOTTED)) {

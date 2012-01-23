@@ -66,7 +66,8 @@ public class Model implements Serializable {
 								   INFLUENCED_REACTANTS = "Influenced reactants", //The reactants (in the form identifier.quantity/activity) influenced by a reaction. This Edge property is represented as a list of Strings
 								   INFLUENCE_VALUES = "Influence values", //The influence values (usually, +1 or -1) for each reactant influenced by a reaction. This Edge property is represented as a list of Integers, and needs to be in the same order (and same lenght) as the one for INFLUENCED_REACTANTS
 								   USER_DEFINED_FORMULAE = "User-defined formulae",
-								   CYTOSCAPE_TO_MODEL_NAMES_MAP = "Cytoscape to model names"; //The map that allows us to understand to which reactant name inside the model a cytoscape node id corresponds
+								   CYTOSCAPE_TO_MODEL_NAMES_MAP = "Cytoscape to model names", //The map that allows us to understand to which reactant name inside the model a cytoscape node id corresponds
+								   NOT_GROWING = "Not growing";
 	}
 
 	
